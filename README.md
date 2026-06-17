@@ -2,269 +2,218 @@
 
 # ProxyTrace
 
-A side-effect-safe deterministic replay engine for tool-using enterprise AI agents, featuring MCP-compatible proxy interception, LLM prompt capture, patch-and-replay debugging, structured divergence analysis, and automatic regression-test generation.
+Side-effect-safe execution tracing and deterministic replay for enterprise AI agents.
 
-> AINS Hackathon 2026 
+**AINS Hackathon 2026 · Use Case 2 · Agent Execution Tracer & Deterministic Replay Engine**
 
 </div>
 
 ---
 
-## Table of Contents
+ProxyTrace is the flight recorder for Jira AI agents. It records every LLM decision and tool call, replays incidents without touching live Jira, blocks side effects during replay, and turns failures into inspectable evidence.
 
-- [Problem Statement](#problem-statement)
-- [Solution](#solution)
-- [System Architecture](#system-architecture)
-- [Current Scope](#current-scope)
-- [Tech Stack](#tech-stack)
-- [Quick Start](#quick-start)
+Core loop:
 
----
-
-## Problem Statement
-
-When a traditional software system fails, an engineer opens the stack trace, reproduces the bug locally, and fixes it. The loop is tight and predictable.
-
-When an AI agent fails in production, the loop collapses:
-
-- It routed 12 Jira tickets to the wrong board.
-- It hallucinated a SQL parameter and queried the wrong database.
-- It drafted an aggressive email and sent it.
-
-You cannot reproduce the failure by simply running the agent again, because the underlying LLM will make different decisions on the next run. And if you try anyway, the agent may trigger the **same live side effect a second time**: another ticket gets modified, another email goes out.
-
-There is currently no safe "replay" button for agentic systems the way there is for a stack trace or `git bisect` in traditional software. Existing observability tools (LangSmith, LangFuse, W&B Weave) give you logs, they tell you **what happened**. None of them tell you **what would have happened if you'd done something differently**, and none of them guarantee that finding out won't touch a live system.
-
----
-
-## Solution
-
-**ProxyTrace fixes this gap.**
-
-It is an AgentOps infrastructure layer that:
-
-- records the agent's full execution trace: every LLM prompt, every tool call, every response, every context snapshot;
-- replays incidents deterministically without touching live systems;
-- lets developers patch a prompt or tool result at the exact failing step;
-- compares the original and fixed trajectories;
-- explains the divergence in a structured, human-readable report;
-- promotes failed runs into reusable regression tests.
-
-The core loop:
-
-```
-record → replay → patch → diff → explain → regress
+```text
+record -> replay -> patch -> diff -> explain -> regress
 ```
 
-ProxyTrace is not another enterprise agent, it is the infrastructure layer that makes *any* MCP-compatible agent inspectable, replayable, and regression-testable.
+## Why This Wins
 
+When a traditional system fails, engineers reproduce the bug. When an AI agent fails, rerunning it may produce a different trajectory or trigger the same live side effect again. ProxyTrace closes that infrastructure gap:
 
----
+- full trajectory capture: LLM prompts, model responses, tool calls, payloads, latency, status, and context snapshots;
+- deterministic strict replay: recorded LLM and tool responses are served from the trace store, with zero live calls;
+- side-effect firewall: write and destructive tools are blocked during replay and logged as warnings;
+- tool contract registry: every tool has a replay policy, schema hash, trust level, and side-effect class;
+- evaluation-ready data: the 20-trace label set is already present in `proxytrace/data/labels.json`.
 
-## System Architecture
+This maps directly to the AINS Use Case 2 must-have criteria: record functionality, deterministic replay, state inspection, and a foundation for divergence editing.
 
-### High-level overview
+## Phase 1 Status
+
+Built now:
+
+- FastAPI backend at `proxytrace.proxy.main:app`
+- async SQLAlchemy trace store for Neon PostgreSQL
+- tables/models for `runs`, `steps`, `tool_contracts`, `replays`, `regression_pack`, and `drift_warnings`
+- MCP-style tool proxy endpoint at `POST /mcp`
+- LLM capture endpoint at `POST /llm/capture`
+- demo Jira triage agent with two tools:
+  - `get_project_key` as a read tool
+  - `update_ticket` as a write tool
+- strict replay endpoint at `POST /runs/{run_id}/replay/strict`
+- side-effect firewall that blocks `update_ticket` during strict replay
+- default contracts and schema hashes for the demo tools
+- Phase 4 evaluation labels drafted early, as required by the winning plan
+
+Planned next:
+
+- prompt/tool-result patch engine
+- exploratory replay from a patch point
+- trajectory and semantic divergence diff
+- hybrid evaluator with one structured AI judge call
+- React/Forge UI
+
+## Architecture
 
 ```mermaid
 graph LR
-    A["Enterprise Agent<br/>MCP client"] -->|"LLM calls + tool calls"| B["ProxyTrace Proxy<br/>FastAPI"]
-    B -->|"Validates contract,<br/>blocks live writes on replay"| C["Side-Effect Firewall"]
-    B -->|"Persists traces,<br/>snapshots, contracts"| D[("Postgres<br/>Trace Store")]
-    D -->|"Loads recorded steps"| E{"Replay Engine<br/>Strict / Exploratory"}
-    E -->|"Compares trajectories,<br/>scores divergence"| F["AI Divergence Scorer"]
-    F -->|"Promotes verdict"| G["Regression Pack"]
-
-    style B fill:#16a34a,stroke:#0f172a,color:#fff
-    style E fill:#ea580c,stroke:#0f172a,color:#fff
-    style D fill:#2563eb,stroke:#0f172a,color:#fff
-    style A fill:#1e293b,stroke:#475569,color:#fff
-    style C fill:#1e293b,stroke:#475569,color:#fff
-    style F fill:#1e293b,stroke:#475569,color:#fff
-    style G fill:#1e293b,stroke:#475569,color:#fff
+    Agent["Demo / Enterprise Agent"] -->|"LLM snapshot"| LLM["LLM Adapter"]
+    Agent -->|"tool call"| Proxy["Tool Proxy Gateway"]
+    LLM --> Store[("Trace Store<br/>Neon PostgreSQL")]
+    Proxy --> Contracts["Tool Contract Registry"]
+    Contracts --> Firewall["Side-Effect Firewall"]
+    Proxy --> Store
+    Store --> Replay["Strict Replay Engine"]
+    Firewall --> Replay
+    Replay --> Verdict["Replay Verdict<br/>determinism, blocked writes, zero live calls"]
 ```
 
-### Live recording sequence
-
-How a single agent run is captured without interfering with execution:
+Live recording:
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant Agent
-    participant LLM as LLM Adapter
-    participant Proxy as Tool Proxy
-    participant Registry as Tool Contract Registry
+    participant API as ProxyTrace API
     participant Store as Trace Store
-    participant Tool as Real Tool
+    participant Tool as Demo/Upstream Tool
 
-    Agent->>LLM: LLM request(messages, system_prompt)
-    LLM->>Store: store LLM snapshot(prompt, messages, model, response hash)
-    LLM-->>Agent: LLM response(tool intent / decision)
-
-    Agent->>Proxy: tool_call(name, params)
-    Proxy->>Registry: validate tool contract and side-effect class
-    Registry-->>Proxy: contract metadata
-    Proxy->>Store: store tool call params + contract hashes
-
-    Proxy->>Tool: forward live call
-    Tool-->>Proxy: response(payload, latency, status)
-
-    Proxy->>Store: store tool response + latency + status
-    Proxy-->>Agent: return response
+    Agent->>API: POST /runs
+    API->>Store: create run
+    Agent->>API: POST /llm/capture
+    API->>Store: store prompt, messages, response, prompt hash
+    Agent->>API: POST /mcp get_project_key
+    API->>Store: store tool params + contract hash
+    API->>Tool: execute read tool
+    Tool-->>API: project key response
+    API->>Store: store response + latency
+    Agent->>API: POST /mcp update_ticket
+    API->>Tool: execute write tool during live recording
+    API->>Store: store write response and side-effect class
 ```
 
-### Replay and patch flow
-
-How a recorded incident is safely replayed, patched, and turned into a verdict:
+Strict replay:
 
 ```mermaid
-flowchart TD
-    START["Load recorded incident trace"] --> STRICT["Run Strict Replay"]
-    STRICT --> CHECK1{"Live side effect attempted?"}
-    CHECK1 -->|Yes| BLOCK["Side-Effect Firewall blocks live action<br/>UI: LIVE SIDE EFFECT BLOCKED"]
-    CHECK1 -->|No| INSPECT["Inspect original steps in Step Inspector"]
+sequenceDiagram
+    autonumber
+    participant User
+    participant Replay as Strict Replay
+    participant Store as Trace Store
+    participant Firewall as Side-Effect Firewall
 
-    BLOCK --> INSPECT
-    INSPECT --> PATCH["Patch prompt, variable, or tool result at failing step"]
-    PATCH --> EXPLORE["Run Exploratory Replay from patch point"]
-    EXPLORE --> DIFF["Compare trajectory: original vs replayed"]
-    DIFF --> OUTCOME["Compare semantic outcome: final state correct?"]
-    OUTCOME --> REPORT["Generate structured Divergence Report"]
-    REPORT --> REGRESS["Promote incident to Regression Pack"]
+    User->>Replay: replay run_id
+    Replay->>Store: load recorded steps
+    Replay->>Replay: serve LLM output from snapshot
+    Replay->>Firewall: inspect update_ticket contract
+    Firewall-->>Replay: blocked_mocked_from_recording
+    Replay->>Store: log side_effect_blocked warning
+    Replay-->>User: determinism_rate=1.0, live_call_count=0
 ```
-
-### Divergence scorer: the only LLM call in the replay pipeline
-
-```mermaid
-flowchart LR
-    subgraph IN["Input"]
-        I1[Original trajectory JSON]
-        I2[Replayed trajectory JSON]
-        I3[Patch step ID]
-    end
-
-    subgraph SCORER["AI API call — structured output enforced"]
-        SC["Prompt: compare trajectories step by step"]
-    end
-
-    subgraph OUT["Output"]
-        O1["root_cause_step: step ID"]
-        O2["divergence_type: string"]
-        O3["affected_steps: list"]
-        O4["risk_level: high / medium / low"]
-        O5["recommendation: string"]
-        O6["judge_confidence: 0.0–1.0"]
-    end
-
-    IN --> SC --> OUT
-```
-
-The scorer receives two trajectory JSONs and a patch point, and returns a structured object, never an open-ended chat response. The deterministic checks (tool match, schema validity, side-effect blocking, final-state equivalence) decide what happened; the LLM judge only explains why.
-
-### Two complementary capture mechanisms
-
-A tool proxy alone cannot reliably see LLM prompts. This is why capture is intentionally split in two:
-
-| Mechanism | Captures |
-|---|---|
-| **LLM Instrumentation Adapter** | system prompt, messages array, model name/version, LLM request and response, token usage, prompt/response hashes |
-| **Tool Proxy Gateway** | tool name, input parameters, output payload, latency and status, side-effect classification, tool contract version, schema/descriptor hashes |
-
-The agent points to `localhost:8000/mcp` instead of the real tool URL — **one environment variable change, zero agent code modified.**
-
----
-
-## Current Scope
-
-ProxyTrace's MVP scope is intentionally bounded so that every **Must** acceptance criterion is solid before anything else is attempted.
-
-**In scope:**
-
-- MCP-compatible tools used by a single demo agent (Jira triaging agent: `get_project_key` + `update_ticket`)
-- Two-layer capture: LLM Instrumentation Adapter + Tool Proxy Gateway
-- **Strict Replay**: fully deterministic, zero live calls, write/destructive actions blocked by the Side-Effect Firewall
-- **Exploratory Replay**: controlled divergence after a developer patches a step
-- **Patch Engine**: prompt patch, variable patch, tool-result patch, validation patch
-- **Tool Contract Registry** with schema/descriptor hashes and drift warnings (MVP-level: hashes + warnings, not full enforcement)
-- **Divergence Diff** at two levels: trajectory diff and semantic outcome diff
-- **Hybrid Evaluator**: deterministic checks as the primary source of truth, LLM judge for explanation only
-- **Regression Pack**: one-click promotion of a failed run into a replayable regression test with assertions
-- Evaluation on a 20-trace synthetic test set with documented metrics
----
-
-## Tech Stack
-
-| Layer | Technology | Why |
-|---|---|---|
-| API / runtime | FastAPI (async) | low-latency interception, MCP-compatible routing |
-| ORM / driver | SQLAlchemy (async) + asyncpg | typed Postgres access, Alembic migrations |
-| LLM capture | lightweight LLM adapter | captures prompts the tool proxy cannot see |
-| Tool proxy | MCP-compatible proxy | intercepts tool calls, supports mock injection |
-| Trace DB | PostgreSQL | relational integrity for runs/steps, JSONB for snapshots, scales past hackathon demo size |
-| Snapshot storage | Postgres JSONB | queryable context snapshots, no separate blob store needed |
-| Replay engine | Python orchestration | deterministic control over recorded traces |
-| Divergence scorer | AI API (structured output) | one call per replay, no open-ended generation |
-| UI | React + Vite | fast frontend |
-| Graph view | ReactFlow | purpose-built for side-by-side trajectory DAGs |
-| Containerization | Docker + Docker Compose | one-command spin-up of Postgres + API + UI |
-
-No exotic infrastructure; every dependency is a single `pip install` or `npm install` away.
-
----
 
 ## Quick Start
 
-```bash
-# clone and set up
-git clone <repo-url>
-cd proxytrace
+Set `DATABASE_URL` to the Neon pooled PostgreSQL connection string with `sslmode=require`.
 
-# database
-docker run -d --name proxytrace-db -e POSTGRES_PASSWORD=proxytrace -p 5432:5432 postgres:16
-export DATABASE_URL=postgresql://postgres:proxytrace@localhost:5432/proxytrace
-
-# backend
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn proxy.main:app --reload
-
-# frontend
-cd ui
-npm install
-npm run dev
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+Copy-Item .env.example .env
+# edit .env and paste the Neon pooled DATABASE_URL
+python -m proxytrace.db.init_db
+uvicorn proxytrace.proxy.main:app --reload
 ```
 
-Point your MCP-compatible agent at the ProxyTrace proxy with a single environment variable change:
+In a second terminal, record a demo trace:
 
-```bash
-export MCP_SERVER_URL=http://localhost:8000/mcp
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m proxytrace.agent_demo.run_demo --issue-key DEMO-1 --summary "API deploy pipeline fails" --description "The platform release pipeline fails after an API change."
 ```
 
-No agent code modification required.
+Copy the `run_id` from the output and run strict replay:
 
----
+```powershell
+$runId = "<run_id>"
+Invoke-RestMethod -Method Post "http://localhost:8000/runs/$runId/replay/strict"
+```
+
+Expected replay properties:
+
+- `determinism_rate` is `1.0`
+- `live_call_count` is `0`
+- `update_ticket` is marked `blocked_mocked_from_recording`
+- a `side_effect_blocked` warning is written for the replayed write tool
+
+## Neon + Render + Forge Path
+
+Day 0 / production-like setup from the winning plan:
+
+1. Create a Neon project named `proxytrace`.
+2. Use the pooled PostgreSQL connection string as `DATABASE_URL`.
+3. Deploy the FastAPI backend on Render so Atlassian Forge can reach it.
+4. Set `GEMINI_API_KEY` and `GEMINI_MODEL=gemini-3.1-flash-lite`.
+5. Hit `GET /health` on the Render URL.
+6. Use the Render URL as the Forge Remote backend base URL.
+
+The judging/demo target is Neon PostgreSQL + Render FastAPI backend + Forge.
+
+## API Surface
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` | service health check |
+| `POST /runs` | start an agent run |
+| `GET /runs` | list recorded runs, optionally filtered by Jira issue key |
+| `GET /runs/{run_id}` | inspect run metadata and all steps |
+| `GET /runs/{run_id}/warnings` | inspect firewall and drift warnings |
+| `POST /llm/capture` | record an LLM prompt/response snapshot |
+| `POST /mcp` | proxy and record a tool call |
+| `POST /runs/{run_id}/complete` | mark a run completed or failed |
+| `POST /runs/{run_id}/replay/strict` | replay from recorded snapshots with the firewall enabled |
 
 ## Repository Structure
 
-```
+```text
 proxytrace/
-├── agent_demo/        # Jira triaging demo agent
-├── llm_adapter/       # LLM prompt/message capture
-├── proxy/             # MCP tool proxy gateway
-├── replay/            # Strict + Exploratory replay engines
-├── patch/              # Patch Engine
-├── contracts/          # Tool Contract Registry
-├── integrity/          # Schema hash + drift warnings
-├── evaluator/          # Hybrid evaluator + divergence scorer
-├── regression_pack/    # Regression test store
-├── frontend/            # React + Vite frontend
-├── tests/               # Pytest suite
-├── data/                 # 20 synthetic traces
-└── README.md
+  agent_demo/       demo Jira triage agent and runner
+  contracts/        schema hashing and default tool contract registry
+  db/               SQLAlchemy models, sessions, repository helpers, init script
+  llm_adapter/      LLM prompt/response capture helpers
+  proxy/            FastAPI app, routes, MCP-style tool proxy, demo tools
+  replay/           strict replay engine and side-effect firewall
+  data/
+    labels.json     20 human labels for evaluator ground truth
+tests/
+  test_*.py         initial contract/firewall tests
 ```
+
+## Evaluation Labels
+
+`proxytrace/data/labels.json` contains the planned 20-trace evaluation set:
+
+- 5 clean runs
+- 4 wrong tool argument failures
+- 4 wrong tool selection failures
+- 3 untrusted context injection failures
+- 2 wrong tool order failures
+- 2 schema drift warnings
+
+These labels are written before scorer implementation to avoid tuning the evaluator to its own output.
+
+## Hackathon Roadmap
+
+Phase 1, Days 1-2: record, strict replay, side-effect firewall.
+
+Phase 2, Days 3-4: patch engine, exploratory replay, divergence diff, hybrid evaluator, regression pack.
+
+Phase 3, Days 5-6: React/Vite frontend and Forge issue panel integration.
+
+Phase 4, Day 7: 20-trace evaluation run, metrics report, demo video, final submission polish.
 
 ---
 
-*Built for AINS Hackathon 2026 — Use Case 2: Agent Execution Tracer and Deterministic Replay Engine, in partnership with Vectors.*
-
-**This is an active build, not a finished product. The next phase is already underway.**
+Built for AINS Hackathon 2026, Use Case 2, with Vectors as the commercial target.
