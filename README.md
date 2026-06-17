@@ -39,10 +39,12 @@ Built now:
 - tables/models for `runs`, `steps`, `tool_contracts`, `replays`, `regression_pack`, and `drift_warnings`
 - MCP-style tool proxy endpoint at `POST /mcp`
 - LLM capture endpoint at `POST /llm/capture`
+- Gemini SDK monkey-patch for automatic `google.genai.Client.models.generate_content(...)` capture
 - demo Jira triage agent with two tools:
   - `get_project_key` as a read tool
   - `update_ticket` as a write tool
 - strict replay endpoint at `POST /runs/{run_id}/replay/strict`
+- sequence-based replay determinism metrics, including matching step count and mismatches
 - side-effect firewall that blocks `update_ticket` during strict replay
 - default contracts and schema hashes for the demo tools
 - Phase 4 evaluation labels drafted early, as required by the winning plan

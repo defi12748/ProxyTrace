@@ -3,7 +3,10 @@ from proxytrace.settings import Settings
 
 def test_postgres_url_is_normalized_for_asyncpg_and_neon_sslmode() -> None:
     settings = Settings(
-        database_url="postgresql://user:pass@example.neon.tech/proxytrace?sslmode=require"
+        database_url=(
+            "postgresql://user:pass@example.neon.tech/proxytrace"
+            "?sslmode=require&channel_binding=require"
+        )
     )
 
     assert settings.async_database_url == (

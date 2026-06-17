@@ -17,12 +17,13 @@ def _as_bool(value: str | None, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _normalize_asyncpg_ssl_query(url: str) -> str:
-    if "sslmode=" not in url:
+def _normalize_asyncpg_query(url: str) -> str:
+    if "sslmode=" not in url and "channel_binding=" not in url:
         return url
     parts = urlsplit(url)
     params = dict(parse_qsl(parts.query, keep_blank_values=True))
     sslmode = params.pop("sslmode", None)
+    params.pop("channel_binding", None)
     if sslmode and "ssl" not in params:
         params["ssl"] = "require" if sslmode == "require" else sslmode
     return urlunsplit(parts._replace(query=urlencode(params)))
@@ -49,13 +50,13 @@ class Settings:
                 "with sslmode=require."
             )
         if url.startswith("postgresql+asyncpg://"):
-            return _normalize_asyncpg_ssl_query(url)
+            return _normalize_asyncpg_query(url)
         if url.startswith("postgresql://"):
             async_url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-            return _normalize_asyncpg_ssl_query(async_url)
+            return _normalize_asyncpg_query(async_url)
         if url.startswith("postgres://"):
             async_url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-            return _normalize_asyncpg_ssl_query(async_url)
+            return _normalize_asyncpg_query(async_url)
         return url
 
 

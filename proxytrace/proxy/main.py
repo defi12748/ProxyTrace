@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,10 +11,20 @@ from proxytrace.db.session import SessionLocal, init_models
 from proxytrace.proxy.routes import health, llm, mcp, replay, runs
 
 
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    await init_models()
+    async with SessionLocal() as session:
+        await ensure_default_contracts(session)
+        await session.commit()
+    yield
+
+
 app = FastAPI(
     title="ProxyTrace API",
     description="Agent execution tracer and deterministic replay engine.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -27,12 +40,3 @@ app.include_router(runs.router)
 app.include_router(llm.router)
 app.include_router(mcp.router)
 app.include_router(replay.router)
-
-
-@app.on_event("startup")
-async def startup() -> None:
-    await init_models()
-    async with SessionLocal() as session:
-        await ensure_default_contracts(session)
-        await session.commit()
-

@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
+from google import genai
+
 from proxytrace.agent_demo.tools import ProxyTraceClient
+from proxytrace.llm_adapter import gemini_patch
 from proxytrace.llm_adapter.adapter import decide_project_board
+from proxytrace.settings import get_settings
 
 
 SYSTEM_PROMPT = (
@@ -15,6 +20,8 @@ SYSTEM_PROMPT = (
 class JiraTriagingAgent:
     def __init__(self, client: ProxyTraceClient | None = None) -> None:
         self.client = client or ProxyTraceClient()
+        self.settings = get_settings()
+        gemini_patch.install()
 
     async def run(
         self,
@@ -39,17 +46,13 @@ class JiraTriagingAgent:
             }
         ]
         decision = decide_project_board(summary, description)
-        await self.client.capture_llm(
+        await self._capture_gemini_turn(
             run_id=run_id,
-            model="proxytrace-demo-deterministic",
-            system_prompt=SYSTEM_PROMPT,
-            messages=messages,
-            response_payload={
-                "thought": "Validate the routing board before making a write.",
-                "next_tool": "get_project_key",
-                "candidate_board": decision["board"],
-                "confidence": decision["confidence"],
-            },
+            contents=(
+                "Decide the safest next action for this Jira triage task. "
+                "The expected next action is to validate the project key before "
+                f"making a write.\n\nTicket: {messages[0]['content']}"
+            ),
             snapshot={"ticket": {"issue_key": issue_key, "summary": summary}},
         )
 
@@ -65,23 +68,12 @@ class JiraTriagingAgent:
         )
         project_key = project_lookup["response"]["project_key"]
 
-        await self.client.capture_llm(
+        await self._capture_gemini_turn(
             run_id=run_id,
-            model="proxytrace-demo-deterministic",
-            system_prompt=SYSTEM_PROMPT,
-            messages=messages
-            + [
-                {
-                    "role": "tool",
-                    "name": "get_project_key",
-                    "content": str(project_lookup["response"]),
-                }
-            ],
-            response_payload={
-                "thought": "The project key has been validated; update the Jira ticket.",
-                "next_tool": "update_ticket",
-                "board": project_key,
-            },
+            contents=(
+                "The project key lookup returned this recorded tool response: "
+                f"{project_lookup['response']}. Decide the next action."
+            ),
             snapshot={"validated_project_key": project_key},
         )
 
@@ -112,3 +104,39 @@ class JiraTriagingAgent:
             "update": update,
         }
 
+    async def _capture_gemini_turn(
+        self,
+        *,
+        run_id: str,
+        contents: str,
+        snapshot: dict[str, Any],
+    ) -> None:
+        if not self.settings.gemini_api_key:
+            return
+        await asyncio.to_thread(
+            self._capture_gemini_turn_sync,
+            run_id,
+            contents,
+            snapshot,
+        )
+
+    def _capture_gemini_turn_sync(
+        self,
+        run_id: str,
+        contents: str,
+        snapshot: dict[str, Any],
+    ) -> None:
+        gemini_patch.set_trace_context(
+            run_id=run_id,
+            system_prompt=SYSTEM_PROMPT,
+            snapshot=snapshot,
+        )
+        try:
+            client = genai.Client(api_key=self.settings.gemini_api_key)
+            client.models.generate_content(
+                model=self.settings.gemini_model,
+                contents=contents,
+                config={"system_instruction": SYSTEM_PROMPT},
+            )
+        finally:
+            gemini_patch.clear_trace_context()

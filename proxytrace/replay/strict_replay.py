@@ -16,6 +16,58 @@ from proxytrace.db.repository import (
 from proxytrace.replay.firewall import SideEffectFirewall
 
 
+def step_signature_from_recorded(step: Any) -> tuple[str, str | None]:
+    payload = step.payload or {}
+    tool_name = payload.get("tool_name") if step.step_type == "tool" else None
+    return (step.step_type, tool_name)
+
+
+def step_signature_from_replayed(step: dict[str, Any]) -> tuple[str, str | None]:
+    tool_name = step.get("tool_name") if step.get("step_type") == "tool" else None
+    return (str(step.get("step_type")), tool_name)
+
+
+def calculate_determinism_rate(
+    recorded_signatures: list[tuple[str, str | None]],
+    replayed_signatures: list[tuple[str, str | None]],
+) -> dict[str, Any]:
+    total = len(recorded_signatures)
+    if total == 0:
+        return {"rate": 0.0, "matching_steps": 0, "total_steps": 0, "mismatches": []}
+
+    matching_steps = 0
+    mismatches: list[dict[str, Any]] = []
+    for index, recorded in enumerate(recorded_signatures):
+        replayed = replayed_signatures[index] if index < len(replayed_signatures) else None
+        if recorded == replayed:
+            matching_steps += 1
+        else:
+            mismatches.append(
+                {
+                    "position": index + 1,
+                    "recorded": recorded,
+                    "replayed": replayed,
+                }
+            )
+
+    if len(replayed_signatures) > total:
+        for index, replayed in enumerate(replayed_signatures[total:], start=total + 1):
+            mismatches.append(
+                {
+                    "position": index,
+                    "recorded": None,
+                    "replayed": replayed,
+                }
+            )
+
+    return {
+        "rate": matching_steps / total,
+        "matching_steps": matching_steps,
+        "total_steps": total,
+        "mismatches": mismatches,
+    }
+
+
 class StrictReplayEngine:
     def __init__(self, firewall: SideEffectFirewall | None = None) -> None:
         self.firewall = firewall or SideEffectFirewall()
@@ -93,10 +145,18 @@ class StrictReplayEngine:
                 }
             )
 
-        determinism_rate = 1.0 if steps else 0.0
+        recorded_signatures = [step_signature_from_recorded(step) for step in steps]
+        replayed_signatures = [
+            step_signature_from_replayed(step) for step in replayed_steps
+        ]
+        determinism = calculate_determinism_rate(
+            recorded_signatures,
+            replayed_signatures,
+        )
         verdict = {
             "mode": "strict",
-            "determinism_rate": determinism_rate,
+            "determinism_rate": determinism["rate"],
+            "determinism": determinism,
             "live_call_count": live_call_count,
             "side_effect_block_count": side_effect_block_count,
             "step_count": len(steps),
@@ -120,4 +180,3 @@ class StrictReplayEngine:
             "run_id": run_id,
             "verdict": verdict,
         }
-
