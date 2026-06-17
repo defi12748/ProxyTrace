@@ -206,7 +206,7 @@ ProxyTrace's MVP scope is intentionally bounded so that every **Must** acceptanc
 | Divergence scorer | AI API (structured output) | one call per replay, no open-ended generation |
 | UI | React + Vite | fast frontend |
 | Graph view | ReactFlow | purpose-built for side-by-side trajectory DAGs |
-| Containerization | Docker + Docker Compose | one-command spin-up of Postgres + API + UI for judges |
+| Containerization | Docker + Docker Compose | one-command spin-up of Postgres + API + UI |
 
 No exotic infrastructure; every dependency is a single `pip install` or `npm install` away.
 
@@ -257,7 +257,7 @@ proxytrace/
 ├── integrity/          # Schema hash + drift warnings
 ├── evaluator/          # Hybrid evaluator + divergence scorer
 ├── regression_pack/    # Regression test store
-├── ui/                  # React + Vite frontend
+├── frontend/            # React + Vite frontend
 ├── tests/               # Pytest suite
 ├── data/                 # 20 synthetic traces
 └── README.md
