@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from proxytrace.contracts.registry import ensure_default_contracts
 from proxytrace.db.session import SessionLocal, init_models
-from proxytrace.proxy.routes import health, llm, mcp, regression, replay, runs
+from proxytrace.proxy.routes import drift, health, llm, mcp, regression, replay, runs
 
 
 @asynccontextmanager
@@ -41,3 +41,4 @@ app.include_router(llm.router)
 app.include_router(mcp.router)
 app.include_router(replay.router)
 app.include_router(regression.router)
+app.include_router(drift.router)
