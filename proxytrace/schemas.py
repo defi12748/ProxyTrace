@@ -62,3 +62,7 @@ class ExploratoryReplayForRunRequest(BaseModel):
 
 class RegressionPromoteRequest(BaseModel):
     replay_id: str
+
+
+class RegressionRunAllRequest(BaseModel):
+    candidate_traces: dict[str, list[JsonObject]] = Field(default_factory=dict)

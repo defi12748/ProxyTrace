@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from proxytrace.contracts.registry import get_contract_or_default
 from proxytrace.contracts.schema_hasher import hash_schema
 from proxytrace.db.repository import contract_to_dict, record_step, step_to_dict
+from proxytrace.drift.checker import DriftChecker
 from proxytrace.privacy.redaction import redact_sensitive_data, redaction_metadata
 from proxytrace.proxy.demo_tools import DEMO_TOOL_HANDLERS
 from proxytrace.schemas import ToolCallRequest
@@ -16,6 +17,9 @@ from proxytrace.settings import get_settings
 
 
 class ToolProxyGateway:
+    def __init__(self, drift_checker: DriftChecker | None = None) -> None:
+        self.drift_checker = drift_checker or DriftChecker()
+
     async def record_and_execute(
         self,
         session: AsyncSession,
@@ -46,6 +50,7 @@ class ToolProxyGateway:
             request.snapshot or {"params": request.params},
             enabled=redaction_enabled,
         )
+        stored_snapshot["contract_descriptor_hash"] = contract.descriptor_hash
         payload = {
             "tool_name": request.tool_name,
             "params": stored_params,
@@ -66,6 +71,11 @@ class ToolProxyGateway:
             snapshot=stored_snapshot,
             step_index=request.step_index,
         )
+        drift_result = await self.drift_checker.check_step(
+            session,
+            step=step,
+            run_id=request.run_id,
+        )
         return {
             "run_id": request.run_id,
             "step": step_to_dict(step),
@@ -75,6 +85,18 @@ class ToolProxyGateway:
             "response": response,
             "side_effect": contract.side_effect,
             "replay_policy": contract.replay_policy,
+            "drift": {
+                "drifted": drift_result.drifted,
+                "findings": [
+                    {
+                        "kind": finding.kind.value,
+                        "old_hash": finding.old_hash,
+                        "new_hash": finding.new_hash,
+                        "detail": finding.detail,
+                    }
+                    for finding in drift_result.findings
+                ],
+            },
         }
 
     async def _execute_tool(self, tool_name: str, params: dict[str, Any]) -> Any:
