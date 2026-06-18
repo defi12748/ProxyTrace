@@ -90,6 +90,16 @@ graph LR
     Scorer --> Regression["Regression Pack"]
 ```
 
+## Capture Model
+
+ProxyTrace captures the model layer and the tool layer separately. The tool proxy can see tool calls and side-effect risk, but it cannot reliably see prompts and model responses. The Gemini adapter captures model traffic, while the MCP-style proxy captures tool execution.
+
+| Layer | Captures | Current Integration |
+|---|---|---|
+| Gemini SDK capture adapter | system prompt, messages, model name, response payload, token usage, prompt/response hashes | wraps `google.genai.Client.models.generate_content(...)` and posts snapshots to `POST /llm/capture` when a run context is active |
+| Tool Proxy Gateway | tool name, input parameters, output payload, latency, status, side-effect class, contract hashes | agent calls `POST /mcp`; the gateway validates the registered contract, records the step, and executes the live handler only during recording |
+| Trace Store | run metadata, ordered steps, snapshots, replay verdicts, warnings, regression packs | Neon PostgreSQL with JSONB snapshots and async SQLAlchemy access |
+
 ## Core Workflows
 
 ### Live Recording
@@ -98,22 +108,30 @@ graph LR
 sequenceDiagram
     autonumber
     participant Agent
+    participant Gemini as Gemini SDK Adapter
     participant API as ProxyTrace API
+    participant Registry as Tool Contract Registry
     participant Store as Trace Store
     participant Tool as Demo/Upstream Tool
 
     Agent->>API: POST /runs
     API->>Store: create run
-    Agent->>API: POST /llm/capture
+    Agent->>Gemini: generate_content(...) with trace context
+    Gemini->>API: POST /llm/capture
     API->>Store: store prompt, messages, model response, prompt hash
+    Gemini-->>Agent: model response
     Agent->>API: POST /mcp get_project_key
+    API->>Registry: validate contract and side-effect class
+    Registry-->>API: schema hash, descriptor hash, replay policy
     API->>Store: store tool params and contract metadata
     API->>Tool: execute read tool
     Tool-->>API: project key response
     API->>Store: store response, status, latency
     Agent->>API: POST /mcp update_ticket
+    API->>Registry: classify write contract
     API->>Tool: execute write tool during live recording
     API->>Store: store response and side-effect classification
+    API-->>Agent: tool response
 ```
 
 ### Strict Replay
@@ -156,6 +174,38 @@ sequenceDiagram
     Scorer-->>Replay: root cause, affected steps, confidence
     Replay->>Store: persist exploratory replay verdict
 ```
+
+### Replay, Patch, And Scoring
+
+```mermaid
+flowchart TD
+    RUN["Recorded run in Neon"] --> STRICT["Strict Replay"]
+    STRICT --> SAFETY{"Write or destructive tool?"}
+    SAFETY -->|Yes| BLOCK["Firewall logs side_effect_blocked"]
+    SAFETY -->|No| SNAPSHOT["Serve recorded snapshot"]
+    BLOCK --> INSPECT["Inspect ordered steps and snapshots"]
+    SNAPSHOT --> INSPECT
+    INSPECT --> PATCH["Apply prompt or tool-result patch"]
+    PATCH --> EXPLORE["Exploratory Replay"]
+    EXPLORE --> DIFF["Trajectory and final-state diff"]
+    DIFF --> CHECKS["Deterministic verdict"]
+    CHECKS --> GEMINI["Gemini structured scorer"]
+    GEMINI --> REPORT["Persist human-readable verdict"]
+    REPORT --> REGRESS["Promote to Regression Pack"]
+```
+
+### Structured Scorer Contract
+
+The Gemini scorer is the only LLM call in the replay/evaluation path. Deterministic checks decide what changed; the scorer explains the likely cause in strict JSON. Malformed scorer output falls back to a human-review verdict.
+
+| Field | Meaning |
+|---|---|
+| `root_cause_step` | step index most likely responsible for the divergence |
+| `divergence_type` | one of `wrong_argument`, `wrong_tool`, `wrong_order`, `hallucinated_value`, or `schema_violation` |
+| `affected_steps` | downstream steps affected by the patch or divergence |
+| `risk_level` | `low`, `medium`, `high`, or `critical` |
+| `recommendation` | one concrete remediation sentence |
+| `judge_confidence` | confidence from `0.0` to `1.0`; values below `0.7` require human review |
 
 ## Setup
 
@@ -286,4 +336,3 @@ render.yaml            Render web service configuration
 ---
 
 Built for AINS Hackathon 2026, Use Case 2.
-
