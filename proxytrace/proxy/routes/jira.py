@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from proxytrace.agent_demo.agent import JiraTriagingAgent
+from proxytrace.agent_demo.tools import ProxyTraceClient
 from proxytrace.atlassian.jira_client import JiraClient, JiraConfigError
 from proxytrace.schemas import JiraTraceRequest
 
@@ -26,14 +27,19 @@ async def get_jira_issue(issue_key: str) -> dict[str, object]:
 
 
 @router.post("/trace")
-async def trace_jira_issue(request: JiraTraceRequest) -> dict[str, object]:
+async def trace_jira_issue(
+    request: JiraTraceRequest,
+    http_request: Request,
+) -> dict[str, object]:
     issue_key = request.issue_key.strip().upper()
     if not issue_key:
         raise HTTPException(status_code=400, detail="issue_key is required")
 
     try:
         issue = await JiraClient().get_issue(issue_key)
-        result = await JiraTriagingAgent().run(
+        api_base_url = str(http_request.base_url).rstrip("/")
+        agent = JiraTriagingAgent(client=ProxyTraceClient(base_url=api_base_url))
+        result = await agent.run(
             issue_key=issue.key,
             summary=issue.summary,
             description=issue.description,
