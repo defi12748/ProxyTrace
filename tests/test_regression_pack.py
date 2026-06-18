@@ -50,7 +50,21 @@ def exploratory_replay():
                     }
                 }
             },
-            "evaluation": {"risk_level": "high"},
+            "evaluation": {
+                "risk_level": "high",
+                "semantic_judgment": {
+                    "assertions": {
+                        "expected_final_state": {
+                            "issue_key": "DEMO-1",
+                            "board": "PLATFORM",
+                            "updated": True,
+                        },
+                        "expected_final_board": "PLATFORM",
+                        "satisfies_expected_outcome": True,
+                        "source": "ai_semantic_outcome",
+                    }
+                },
+            },
         },
     )
 
@@ -64,6 +78,7 @@ def test_build_assertions_from_exploratory_replay() -> None:
         {"step_index": 4, "tool_name": "update_ticket"},
     ]
     assert assertions["expected_final_board"] == "PLATFORM"
+    assert assertions["ai_semantic_assertions"]["source"] == "ai_semantic_outcome"
     assert assertions["frozen_trace"][2]["payload"]["response"]["board"] == "PLATFORM"
 
 
@@ -75,4 +90,3 @@ def test_regression_runner_checks_frozen_assertions() -> None:
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["actual_final_state"]["board"] == "PLATFORM"
-

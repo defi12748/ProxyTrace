@@ -42,17 +42,18 @@ ProxyTrace addresses this by preserving the execution state of a run and replayi
 | Side-effect-safe debugging | Implemented. Write/destructive tools are blocked by the firewall during replay. |
 | Divergence editing | Implemented for prompt patches and tool-result patches. |
 | Human-readable verdict | Implemented at backend level through structured evaluator output. UI presentation is pending. |
-| Regression capture | Implemented as frozen trace assertions. Fresh-agent regression re-execution is pending. |
+| Regression capture | Implemented as frozen trace assertions and AI-derived semantic assertions. Fresh-agent regression re-execution is pending. |
+| Data sensitivity | Implemented for capture paths with recursive redaction before prompt/tool payloads are stored. |
 
 ### Remaining Work
 
-1. Complete the public Render deployment and verify the health check.
-2. Connect a real Atlassian/Jira developer workspace (demo tools currently use local handlers).
-3. Build the Forge issue panel / React frontend (Phase 3).
-4. Generate the 20-trace synthetic evaluation set against the existing label targets, then run and publish the evaluation report (Phase 4).
-5. Add Alembic migrations — the schema is currently created with `create_all`.
-6. Extend the regression runner to re-execute a fresh agent version against frozen assertions, rather than only checking consistency of the frozen trace itself.
-7. Add fuller route-level tests for the regression endpoints.
+1. Generate the 20-trace synthetic evaluation set against the existing label targets, then run and publish the evaluation report.
+2. Validate the Gemini semantic outcome judge on those traces and report confidence / human-review behavior.
+3. Complete the public Render deployment and verify the health check.
+4. Connect a real Atlassian/Jira developer workspace (demo tools currently use local handlers).
+5. Build the Forge issue panel / React frontend.
+6. Add Alembic migrations — the schema is currently created with `create_all`.
+7. Extend the regression runner to re-execute a fresh agent version against frozen assertions, rather than only checking consistency of the frozen trace itself.
 
 ## Architecture
 
@@ -67,7 +68,7 @@ graph LR
     Store --> Strict["Strict Replay"]
     Store --> Explore["Exploratory Replay"]
     Explore --> Diff["Trajectory + Outcome Diff"]
-    Diff --> Scorer["Gemini Structured Scorer"]
+    Diff --> Scorer["Gemini Structured Scorer<br/>+ Semantic Outcome Judge"]
     Scorer --> Regression["Regression Pack"]
 ```
 
@@ -93,12 +94,12 @@ flowchart TD
     PATCH --> EXPLORE["Exploratory Replay"]
     EXPLORE --> DIFF["Trajectory and final-state diff"]
     DIFF --> CHECKS["Deterministic verdict"]
-    CHECKS --> GEMINI["Gemini structured scorer"]
+    CHECKS --> GEMINI["Gemini structured scorer<br/>+ semantic judge"]
     GEMINI --> REPORT["Persist human-readable verdict"]
     REPORT --> REGRESS["Promote to Regression Pack"]
 ```
 
-The Gemini scorer is the only LLM call in this path: deterministic checks decide what changed, and the scorer explains the likely cause in strict JSON. Malformed scorer output falls back to a human-review verdict.
+The Gemini evaluator returns strict JSON for root cause, affected steps, risk, confidence, recommendation, expected business outcome, and semantic regression assertions. Malformed scorer output falls back to a human-review verdict.
 
 | Field | Meaning |
 |---|---|
@@ -108,6 +109,20 @@ The Gemini scorer is the only LLM call in this path: deterministic checks decide
 | `risk_level` | `low`, `medium`, `high`, or `critical` |
 | `recommendation` | one concrete remediation sentence |
 | `judge_confidence` | confidence from `0.0` to `1.0`; values below `0.7` require human review |
+| `expected_final_state` | AI-derived semantic assertion for the intended Jira outcome |
+| `satisfies_expected_outcome` | whether the replayed final state satisfies that intended outcome |
+
+## AI Mechanism
+
+ProxyTrace is built for AI-agent failures, so its AI role is not a generic chat layer. The Gemini path captures model decisions, produces structured divergence verdicts, extracts the intended Jira routing outcome from trace context, decides whether a replay satisfies that outcome, and freezes semantic assertions into the regression pack. Removing Gemini would leave raw replay infrastructure, but not the semantic failure attribution and regression judgment layer.
+
+## Data Sensitivity
+
+Prompt and tool payloads are redacted before persistence. The current policy masks emails, bearer/API-token-like values, and fields whose names look secret-bearing, such as `token`, `api_key`, `authorization`, `password`, or `client_secret`. Redaction is enabled by default with `REDACTION_ENABLED=true`.
+
+## Differentiation
+
+ProxyTrace is not just an observability trace viewer. Its core difference is side-effect-safe debugging: replay serves recorded snapshots, write/destructive tools are blocked by the firewall, developers can patch a failing step, and successful patched trajectories can be promoted into regression assertions.
 
 ## Setup
 

@@ -4,11 +4,19 @@ import asyncio
 from typing import Any
 
 from proxytrace.evaluator.ai_scorer import GeminiScorer
+from proxytrace.evaluator.semantic_judge import SemanticOutcomeJudge
 
 
 class HybridEvaluator:
-    def __init__(self, scorer: GeminiScorer | None = None) -> None:
+    def __init__(
+        self,
+        scorer: GeminiScorer | None = None,
+        semantic_judge: SemanticOutcomeJudge | None = None,
+    ) -> None:
         self.scorer = scorer or GeminiScorer()
+        self.semantic_judge = semantic_judge or SemanticOutcomeJudge(
+            enabled=getattr(self.scorer, "enabled", True),
+        )
 
     async def evaluate(
         self,
@@ -16,6 +24,7 @@ class HybridEvaluator:
         patch_step: int,
         patch_payload: dict[str, Any],
         diff: dict[str, Any],
+        trace_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         deterministic_verdict = self.deterministic_verdict(
             patch_step=patch_step,
@@ -29,7 +38,18 @@ class HybridEvaluator:
             diff=diff,
             deterministic_verdict=deterministic_verdict,
         )
+        semantic_judgment = await asyncio.to_thread(
+            self.semantic_judge.judge,
+            trace_context=trace_context or {},
+            diff=diff,
+            deterministic_verdict=deterministic_verdict,
+        )
         scorer_verdict["deterministic_verdict"] = deterministic_verdict
+        scorer_verdict["semantic_judgment"] = semantic_judgment
+        scorer_verdict["ai_load_bearing"] = (
+            semantic_judgment.get("source") == "gemini_semantic_outcome_judge"
+            and bool(semantic_judgment.get("assertions"))
+        )
         return scorer_verdict
 
     def deterministic_verdict(

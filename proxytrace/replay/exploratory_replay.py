@@ -54,6 +54,11 @@ class ExploratoryReplayEngine:
             patch_step=patch_step,
             patch_payload=patch_payload,
             diff=diff,
+            trace_context=self._trace_context(
+                run=run,
+                original_steps=steps,
+                patched_steps=patch_result["patched_steps"],
+            ),
         )
 
         verdict = {
@@ -91,4 +96,31 @@ class ExploratoryReplayEngine:
             "replay_id": replay.replay_id,
             "run_id": run_id,
             "verdict": verdict,
+        }
+
+    def _trace_context(
+        self,
+        *,
+        run: Any,
+        original_steps: list[Any],
+        patched_steps: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        return {
+            "run": {
+                "run_id": run.run_id,
+                "agent_id": run.agent_id,
+                "jira_issue_key": run.jira_issue_key,
+                "workspace_id": run.workspace_id,
+                "metadata": run.metadata_json or {},
+            },
+            "original_steps": [
+                {
+                    "step_index": step.step_index,
+                    "step_type": step.step_type,
+                    "payload": step.payload or {},
+                    "snapshot": step.snapshot or {},
+                }
+                for step in original_steps
+            ],
+            "patched_steps": patched_steps,
         }

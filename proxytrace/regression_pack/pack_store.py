@@ -23,6 +23,16 @@ def build_assertions_from_replay(replay: Replay) -> dict[str, Any]:
     diff = verdict.get("diff") or {}
     semantic = diff.get("semantic_outcome_diff") or {}
     patched_final_state = semantic.get("patched_final_state") or {}
+    evaluation = verdict.get("evaluation") or {}
+    semantic_judgment = evaluation.get("semantic_judgment") or {}
+    ai_assertions = semantic_judgment.get("assertions") or {}
+    expected_final_state = (
+        ai_assertions.get("expected_final_state") or patched_final_state
+    )
+    expected_final_board = (
+        ai_assertions.get("expected_final_board")
+        or expected_final_state.get("board")
+    )
     expected_tool_sequence = [
         {
             "step_index": step.get("step_index"),
@@ -38,10 +48,11 @@ def build_assertions_from_replay(replay: Replay) -> dict[str, Any]:
         "patch_step": replay.patch_step,
         "patch_payload": replay.patch_payload or {},
         "expected_tool_sequence": expected_tool_sequence,
-        "expected_final_state": patched_final_state,
-        "expected_final_board": patched_final_state.get("board"),
+        "expected_final_state": expected_final_state,
+        "expected_final_board": expected_final_board,
+        "ai_semantic_assertions": ai_assertions,
         "frozen_trace": patched_steps,
-        "evaluation": verdict.get("evaluation") or {},
+        "evaluation": evaluation,
     }
 
 

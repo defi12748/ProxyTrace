@@ -111,3 +111,5 @@ async def test_hybrid_evaluator_returns_structured_fallback_verdict() -> None:
     assert verdict["judge_confidence"] == 0.0
     assert verdict["human_review_required"] is True
     assert verdict["source"] == "gemini_scorer_fallback"
+    assert verdict["semantic_judgment"]["source"] == "semantic_outcome_judge_fallback"
+    assert verdict["ai_load_bearing"] is False

@@ -39,6 +39,7 @@ class Settings:
     tool_timeout_seconds: float = float(os.getenv("TOOL_TIMEOUT_SECONDS", "20"))
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+    redaction_enabled: bool = _as_bool(os.getenv("REDACTION_ENABLED"), default=True)
 
     @property
     def async_database_url(self) -> str:

@@ -8,7 +8,9 @@ Important override: the docx names a different scorer provider in examples, but 
 
 ## Alignment Verdict
 
-We are aligned with the docx direction and Phase 1 architecture, but we are not 100% complete against the full docx gate yet.
+We are aligned with the docx direction and Use Case 2 architecture, but we are not 100% complete against the full judging gate yet.
+
+The current highest-scoring risk is the global requirement that AI must be the mechanism, not a peripheral feature. ProxyTrace now captures and replays AI-agent behavior, uses Gemini for structured divergence verdicts, and adds a Gemini semantic outcome judge that produces assertion candidates for regression promotion. The remaining proof work is to validate that semantic judge on the labeled trace set and report its confidence / human-review behavior.
 
 ## Completion Estimate
 
@@ -26,6 +28,8 @@ Breakdown:
 - Phase 3 frontend/Forge UI: 0%; not started.
 - Phase 4 evaluation/polish: about 10%; labels exist, but trace generation and metrics are not implemented.
 
+Judging-risk adjustment: the engineering foundation is strong, but first-place positioning depends on proving that AI is load-bearing in the replay/evaluation mechanism. Semantic outcome judging is now implemented; evaluation proof should happen before major frontend polish.
+
 What is aligned:
 
 - Stack direction: Python, FastAPI, React later, Neon PostgreSQL, Render, Forge.
@@ -35,6 +39,7 @@ What is aligned:
 - Tool model: `get_project_key` is read-only, `update_ticket` is side-effecting write.
 - Data model direction: runs, steps, tool contracts, replays, regression pack, drift warnings.
 - Evaluation labels exist before scorer work.
+- Data sensitivity is now handled in capture paths with default redaction before persistence.
 
 What is not fully proven yet:
 
@@ -42,6 +47,7 @@ What is not fully proven yet:
 - Forge Day 0 spike has not been scaffolded/deployed.
 - The demo agent has not been run against a real Atlassian developer workspace.
 - Alembic migrations are not added yet; `proxytrace.db.init_db` creates tables directly for the foundation.
+- Gemini semantic outcome judgment is implemented, but it has not yet been validated across the 20-trace evaluation set.
 
 ## Done
 
@@ -184,6 +190,32 @@ What is not fully proven yet:
   - regression failed: `0`
 - Added tests for Gemini scorer valid JSON, Gemini scorer fallback, regression promotion assertions, and regression assertion runner.
 
+### 2026-06-18 Judging Alignment Pass
+
+- Added `proxytrace/evaluator/semantic_judge.py`.
+- Implemented Gemini semantic outcome judgment:
+  - reads trace context and diff
+  - infers expected final Jira outcome
+  - decides whether the replay satisfies that intended outcome
+  - returns AI-derived assertion candidates with confidence
+- Wired semantic judgment into `HybridEvaluator`.
+- Wired exploratory replay to pass run metadata, original steps, and patched steps into the evaluator.
+- Updated regression promotion to prefer AI-derived semantic assertions when present.
+- Added `proxytrace/privacy/redaction.py`.
+- Added default-on recursive capture redaction before persistence:
+  - emails
+  - bearer/API-token-like values
+  - secret-looking keys such as `token`, `api_key`, `authorization`, `password`, and `client_secret`
+- Wired redaction into:
+  - LLM prompt/message/response snapshots
+  - tool params/responses/snapshots stored by the proxy
+- Added `REDACTION_ENABLED=true` to `.env.example`.
+- Added redaction tests.
+- Updated README to document:
+  - AI mechanism and semantic outcome judgment
+  - data sensitivity handling
+  - differentiation from generic observability tooling
+
 ## Current Files That Matter
 
 - `README.md` - judge-facing project explanation and setup path.
@@ -200,6 +232,8 @@ What is not fully proven yet:
 - `proxytrace/evaluator/divergence_diff.py` - trajectory and semantic final-state diff.
 - `proxytrace/evaluator/hybrid_evaluator.py` - deterministic evaluator verdicts.
 - `proxytrace/evaluator/ai_scorer.py` - Gemini structured scorer with strict validation and fallback.
+- `proxytrace/evaluator/semantic_judge.py` - Gemini semantic outcome assertions for replay/regression judgment.
+- `proxytrace/privacy/redaction.py` - default-on capture redaction for sensitive text and secret-like fields.
 - `proxytrace/regression_pack/pack_store.py` - regression promotion assertion builder.
 - `proxytrace/regression_pack/runner.py` - regression assertion runner.
 - `proxytrace/replay/firewall.py` - side-effect firewall.
@@ -209,13 +243,21 @@ What is not fully proven yet:
 
 ## Next Work
 
-### Immediate Day 0 / Day 1 Gate Work
+### Immediate Judging Alignment Work
+
+1. Generate the 20 synthetic traces from `proxytrace/data/labels.json`.
+2. Run the Gemini scorer and semantic outcome judge against those traces.
+3. Report confidence, human-review rate, semantic outcome accuracy, and judge agreement in `evaluation_report.md`.
+4. Add low-confidence semantic judge fixtures for incomplete evidence.
+
+### Immediate Deploy / Integration Gate Work
 
 1. Deploy FastAPI backend to Render.
 2. Add Render env vars:
    - `DATABASE_URL`
    - `GEMINI_API_KEY`
    - `GEMINI_MODEL=gemini-3.1-flash-lite`
+   - `REDACTION_ENABLED=true`
 3. Verify Render `GET /health` returns 200.
 4. Run the demo agent through the Render `/mcp` URL.
 5. Run strict replay on Render-recorded traces and confirm:
@@ -233,10 +275,11 @@ What is not fully proven yet:
 
 ### Phase 2
 
-1. Add route-level tests for regression endpoints.
-2. Add replay lookup endpoints if the frontend needs direct replay history.
-3. Add deeper malformed-scorer fixtures and low-confidence demo trace.
-4. Harden regression run-all to support future live patched-agent reruns, not only frozen assertion checks.
+1. Validate semantic expected outcomes and assertion candidates against the labeled trace set.
+2. Add route-level tests for regression endpoints.
+3. Add replay lookup endpoints if the frontend needs direct replay history.
+4. Add deeper malformed-scorer fixtures and low-confidence demo trace.
+5. Harden regression run-all to support future live patched-agent reruns, not only frozen assertion checks.
 
 ### Phase 3
 
@@ -265,8 +308,10 @@ What is not fully proven yet:
 
 ## Current Risk Register
 
+- Semantic outcome judgment exists, but we still need evaluation evidence that it improves failure attribution and regression assertions.
 - No Render deployment yet means Forge Remote cannot call the backend yet.
 - No Forge spike yet means commercial integration is not proven.
 - No real Jira workspace run yet means the current demo agent is still a local proxy proof.
 - Regression runner currently validates frozen trace consistency and final-state assertions. It does not yet re-execute a fresh agent version against the frozen assertions.
+- Redaction covers common PII/secret patterns but still needs an evaluation note describing scope and limitations.
 - Gemini model name is set to `gemini-3.1-flash-lite`; if the provider exposes a different canonical ID, update env only.

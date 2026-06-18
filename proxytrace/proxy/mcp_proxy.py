@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from proxytrace.contracts.registry import get_contract_or_default
 from proxytrace.contracts.schema_hasher import hash_schema
 from proxytrace.db.repository import contract_to_dict, record_step, step_to_dict
+from proxytrace.privacy.redaction import redact_sensitive_data, redaction_metadata
 from proxytrace.proxy.demo_tools import DEMO_TOOL_HANDLERS
 from proxytrace.schemas import ToolCallRequest
 from proxytrace.settings import get_settings
@@ -34,23 +35,35 @@ class ToolProxyGateway:
             }
 
         latency_ms = round((time.perf_counter() - started) * 1000, 2)
+        settings = get_settings()
+        redaction_enabled = settings.redaction_enabled
+        stored_params = redact_sensitive_data(
+            request.params,
+            enabled=redaction_enabled,
+        )
+        stored_response = redact_sensitive_data(response, enabled=redaction_enabled)
+        stored_snapshot = redact_sensitive_data(
+            request.snapshot or {"params": request.params},
+            enabled=redaction_enabled,
+        )
         payload = {
             "tool_name": request.tool_name,
-            "params": request.params,
-            "response": response,
+            "params": stored_params,
+            "response": stored_response,
             "latency_ms": latency_ms,
             "status": status,
-            "input_schema_hash": hash_schema(request.params),
-            "output_schema_hash": hash_schema(response),
+            "input_schema_hash": hash_schema(stored_params),
+            "output_schema_hash": hash_schema(stored_response),
             "contract": contract_to_dict(contract),
             "side_effect_class": contract.tool_type,
+            "redaction": redaction_metadata(redaction_enabled),
         }
         step = await record_step(
             session,
             run_id=request.run_id,
             step_type="tool",
             payload=payload,
-            snapshot=request.snapshot or {"params": request.params},
+            snapshot=stored_snapshot,
             step_index=request.step_index,
         )
         return {
@@ -77,4 +90,3 @@ class ToolProxyGateway:
             response = await client.post(f"{base_url}/tools/{tool_name}", json=params)
             response.raise_for_status()
             return response.json()
-
