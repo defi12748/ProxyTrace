@@ -25,7 +25,7 @@ Breakdown:
 - Day 0 infrastructure: about 45%; Neon schema init is verified, Render config exists, but Render deploy and Forge spike are not connected yet.
 - Phase 1 recording/proxy/replay/firewall: about 93%; core backend modules exist, 5 Neon-backed demo traces replayed, Gemini SDK capture was verified, drift checker is automatically wired into `/mcp`, drift endpoints are route-tested, but real Atlassian verification is still missing.
 - Phase 2 patch/diff/evaluator/regression: about 90%; patch engine, exploratory replay, divergence diff, Gemini structured scorer, hybrid evaluator, regression promotion, and run-all exist. Remaining work is hardening and broader route-level tests.
-- Phase 3 frontend/Forge UI: 0%; not started.
+- Phase 3 frontend/Forge UI: about 35%; standalone React/Vite console exists and builds, Forge embedding is pending.
 - Phase 4 evaluation/polish: about 10%; labels exist, but trace generation and metrics are not implemented.
 
 Judging-risk adjustment: the engineering foundation is strong, but first-place positioning depends on proving that AI is load-bearing in the replay/evaluation mechanism. Semantic outcome judging is now implemented; evaluation proof should happen before major frontend polish.
@@ -41,6 +41,7 @@ What is aligned:
 - Evaluation labels exist before scorer work.
 - Data sensitivity is now handled in capture paths with default redaction before persistence.
 - Contract drift detection is now implemented, wired into the FastAPI app, and run automatically after `/mcp` records a tool step.
+- Standalone React/Vite console is implemented for the core demo loop.
 
 What is not fully proven yet:
 
@@ -258,6 +259,28 @@ What is not fully proven yet:
   - `POST /runs/{run_id}/drift/check-all`
   - `GET /runs/{run_id}/drift`
 
+### 2026-06-18 Frontend Console Start
+
+- Added root-level `frontend` React + Vite app.
+- Built Vectors-styled ProxyTrace console with:
+  - run list
+  - trace timeline
+  - step inspector
+  - strict replay action
+  - exploratory patch replay action
+  - ReactFlow trajectory graph
+  - divergence / semantic judgment report
+  - drift warning panel
+  - regression promote and run-all controls
+- Added frontend demo recording flow that calls FastAPI directly:
+  - `POST /runs`
+  - `POST /llm/capture`
+  - `POST /mcp`
+  - `POST /runs/{run_id}/complete`
+- Added `frontend/.env.example` with `VITE_PROXYTRACE_API_URL`.
+- Added `start.ps1` to stop existing local listeners, start backend/frontend in separate Windows Terminal tabs or PowerShell windows, and open the console.
+- Verified `npm run build` passes.
+
 ## Current Files That Matter
 
 - `README.md` - judge-facing project explanation and setup path.
@@ -281,6 +304,8 @@ What is not fully proven yet:
 - `proxytrace/replay/firewall.py` - side-effect firewall.
 - `proxytrace/drift/checker.py` - contract drift detection across input schema, output schema, and descriptor.
 - `proxytrace/proxy/routes/drift.py` - drift check API endpoints.
+- `frontend` - React/Vite standalone console for the demo loop.
+- `start.ps1` - local launcher for backend + frontend.
 - `proxytrace/contracts/registry.py` - default tool contracts.
 - `proxytrace/db/models.py` - Neon/PostgreSQL table models.
 - `proxytrace/data/labels.json` - 20 human labels for evaluation.
@@ -326,13 +351,11 @@ What is not fully proven yet:
 
 ### Phase 3
 
-1. Scaffold React + Vite frontend.
-2. Build trace timeline.
-3. Build step inspector.
-4. Build patch modal.
-5. Build diff view with ReactFlow.
-6. Build regression test view.
-7. Connect Forge issue panel to the Render backend.
+1. Polish the standalone console after one live demo pass.
+2. Add a Forge issue-panel wrapper around the React console.
+3. Connect Forge issue context to `GET /runs?jira_issue_key={key}`.
+4. Deploy Forge app against the Render backend.
+5. Record the full issue-panel demo path.
 
 ### Phase 4
 

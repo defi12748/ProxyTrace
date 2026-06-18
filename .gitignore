@@ -2,6 +2,11 @@
 __pycache__/
 *.py[codz]
 *$py.class
+.backend.*
+.frontend.*
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 
 # C extensions
 *.so

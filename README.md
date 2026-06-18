@@ -45,6 +45,7 @@ ProxyTrace addresses this by preserving the execution state of a run and replayi
 | Regression capture | Implemented as frozen trace assertions and AI-derived semantic assertions. Fresh-agent regression re-execution is pending. |
 | Data sensitivity | Implemented for capture paths with recursive redaction before prompt/tool payloads are stored. |
 | Contract drift detection | Implemented. `/mcp` records descriptor hashes, checks drift automatically, and drift endpoints support on-demand re-checks. |
+| Frontend console | Implemented as a React/Vite operator console for trace list, timeline, inspector, replay, patch, diff, drift, and regression flows. Forge embedding is pending. |
 
 ### Remaining Work
 
@@ -52,7 +53,7 @@ ProxyTrace addresses this by preserving the execution state of a run and replayi
 2. Validate the Gemini semantic outcome judge on those traces and report confidence / human-review behavior.
 3. Complete the public Render deployment and verify the health check.
 4. Connect a real Atlassian/Jira developer workspace (demo tools currently use local handlers).
-5. Build the Forge issue panel / React frontend.
+5. Embed the React console inside a Forge issue panel.
 6. Add Alembic migrations — the schema is currently created with `create_all`.
 7. Extend the regression runner to re-execute a fresh agent version against frozen assertions, rather than only checking consistency of the frozen trace itself.
 
@@ -159,17 +160,25 @@ python -m proxytrace.db.init_db
 uvicorn proxytrace.proxy.main:app --reload
 ```
 
-5. Record a demo trace.
+5. Run the frontend console.
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+6. Record a demo trace from the UI, or use the CLI.
 
 ```powershell
 python -m proxytrace.agent_demo.run_demo --issue-key DEMO-1 --summary "API deploy pipeline fails" --description "The platform release pipeline fails after an API change."
 ```
 
-6. Run strict replay.
+7. Run strict replay from the UI, or use the API.
 
 ```powershell
 $runId = "<run_id>"
-Invoke-RestMethod -Method Post "http://localhost:8000/runs/$runId/replay/strict"
+Invoke-RestMethod -Method Post "http://127.0.0.1:8000/runs/$runId/replay/strict"
 ```
 
 Expected replay properties:
@@ -200,6 +209,23 @@ Expected replay properties:
 | `POST /regression/promote` | freeze an exploratory replay into regression assertions |
 | `GET /regression` | list promoted regression tests |
 | `POST /regression/run-all` | run frozen regression assertions |
+
+## Frontend Console
+
+The React console lives in `frontend`. It uses `VITE_PROXYTRACE_API_URL` to call the FastAPI backend and defaults to `http://127.0.0.1:8000`.
+
+On Windows, `start.ps1` stops existing listeners on ports `8000` and `5173`, starts the backend and frontend in separate terminal tabs or windows, and opens the console.
+
+Current views:
+
+- trace list filtered by Jira issue key
+- ordered LLM/tool timeline
+- step inspector for payload and snapshot JSON
+- strict replay controls and safety metrics
+- exploratory patch replay with board override
+- ReactFlow trajectory graph
+- Gemini divergence / semantic judgment panel
+- drift warnings and regression-pack controls
 
 ## Evaluation Plan
 
@@ -232,6 +258,7 @@ proxytrace/
   replay/              strict and exploratory replay engines
 tests/
   test_*.py            focused backend tests
+frontend/              React/Vite ProxyTrace console
 render.yaml            Render web service configuration
 ```
 
