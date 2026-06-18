@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 from typing import Any
 
 from proxytrace.evaluator.ai_scorer import GeminiScorer
@@ -27,7 +28,12 @@ class EvaluationRunner:
         )
 
     def evaluate(self, traces: list[dict[str, Any]]) -> dict[str, Any]:
-        results = [self.evaluate_trace(trace) for trace in traces]
+        results = []
+        for trace in traces:
+            results.append(self.evaluate_trace(trace))
+            if self.config.use_ai:
+                time.sleep(4)  # Respect Gemini free tier 15 RPM limit
+
         return {
             "total_traces": len(results),
             "metrics": self._metrics(results),

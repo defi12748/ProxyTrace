@@ -1,0 +1,7 @@
+Alembic migration environment for ProxyTrace.
+
+Use:
+
+    alembic upgrade head
+
+The database URL is loaded from `DATABASE_URL` through `proxytrace.settings`.

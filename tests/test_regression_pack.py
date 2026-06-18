@@ -89,4 +89,49 @@ def test_regression_runner_checks_frozen_assertions() -> None:
 
     assert result["passed"] is True
     assert result["failures"] == []
+    assert result["trace_source"] == "frozen_trace"
     assert result["actual_final_state"]["board"] == "PLATFORM"
+
+
+def test_regression_runner_checks_matching_candidate_trace() -> None:
+    assertions = build_assertions_from_replay(exploratory_replay())
+    candidate_trace = assertions["frozen_trace"]
+
+    result = RegressionRunner()._evaluate_assertions(
+        assertions,
+        candidate_trace=candidate_trace,
+    )
+
+    assert result["passed"] is True
+    assert result["trace_source"] == "candidate_trace"
+    assert result["actual_final_state"]["board"] == "PLATFORM"
+
+
+def test_regression_runner_fails_divergent_candidate_trace() -> None:
+    assertions = build_assertions_from_replay(exploratory_replay())
+    candidate_trace = [
+        *assertions["frozen_trace"][:2],
+        {
+            "step_index": 4,
+            "step_type": "tool",
+            "tool_name": "update_ticket",
+            "payload": {
+                "params": {"issue_key": "DEMO-1", "board": "SECURITY"},
+                "response": {
+                    "updated": True,
+                    "issue_key": "DEMO-1",
+                    "board": "SECURITY",
+                    "status": "mocked_local_demo",
+                },
+            },
+        },
+    ]
+
+    result = RegressionRunner()._evaluate_assertions(
+        assertions,
+        candidate_trace=candidate_trace,
+    )
+
+    assert result["passed"] is False
+    assert result["trace_source"] == "candidate_trace"
+    assert "final board did not match regression assertion" in result["failures"]
