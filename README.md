@@ -51,10 +51,8 @@ Built now:
 
 Planned next:
 
-- prompt/tool-result patch engine
-- exploratory replay from a patch point
-- trajectory and semantic divergence diff
-- hybrid evaluator with one structured AI judge call
+- Gemini structured scorer
+- regression promotion endpoint
 - React/Forge UI
 
 ## Architecture
@@ -176,6 +174,8 @@ The judging/demo target is Neon PostgreSQL + Render FastAPI backend + Forge.
 | `POST /mcp` | proxy and record a tool call |
 | `POST /runs/{run_id}/complete` | mark a run completed or failed |
 | `POST /runs/{run_id}/replay/strict` | replay from recorded snapshots with the firewall enabled |
+| `POST /runs/{run_id}/replay/exploratory` | apply a prompt/tool-result patch and compare the branched trajectory |
+| `POST /replay/exploratory` | same exploratory replay flow with `run_id` in the JSON body |
 
 ## Repository Structure
 

@@ -12,7 +12,7 @@ We are aligned with the docx direction and Phase 1 architecture, but we are not 
 
 ## Completion Estimate
 
-Overall docx plan: about 22% complete.
+Overall docx plan: about 30% complete.
 
 Phase 1 foundation code: about 78% complete.
 
@@ -22,7 +22,7 @@ Breakdown:
 
 - Day 0 infrastructure: about 45%; Neon schema init is verified, Render config exists, but Render deploy and Forge spike are not connected yet.
 - Phase 1 recording/proxy/replay/firewall: about 78%; core backend modules exist, 5 Neon-backed demo traces replayed, and Gemini SDK capture was verified, but real Atlassian verification is still missing.
-- Phase 2 patch/diff/evaluator/regression: about 5%; DB tables exist, but implementation has not started.
+- Phase 2 patch/diff/evaluator/regression: about 40%; patch engine, exploratory replay, divergence diff, and deterministic evaluator exist. Gemini structured scorer and regression promotion are still pending.
 - Phase 3 frontend/Forge UI: 0%; not started.
 - Phase 4 evaluation/polish: about 10%; labels exist, but trace generation and metrics are not implemented.
 
@@ -38,12 +38,9 @@ What is aligned:
 
 What is not fully proven yet:
 
-- Neon schema initialization has been verified with the supplied `DATABASE_URL`.
 - Render deployment has not been performed or health-checked from a public URL.
 - Forge Day 0 spike has not been scaffolded/deployed.
 - The demo agent has not been run against a real Atlassian developer workspace.
-- The docx asks for 5 complete Neon traces; 5 demo-mode traces have now been recorded and replayed against Neon.
-- The Gemini SDK monkey-patch exists, is tested, and the demo agent now uses it for normal LLM turns when `GEMINI_API_KEY` is present.
 - Alembic migrations are not added yet; `proxytrace.db.init_db` creates tables directly for the foundation.
 
 ## Done
@@ -115,6 +112,42 @@ What is not fully proven yet:
   - strict replay returned `live_call_count=0`
   - strict replay blocked one `update_ticket`
 
+### 2026-06-18 Phase 2 Start
+
+- Fixed progress wording so Neon verification is no longer listed as unproven.
+- Added `proxytrace/patch/patch_engine.py`.
+- Implemented `tool_result_patch` and `prompt_patch` support.
+- Implemented deterministic propagation from patched `get_project_key` responses into downstream `update_ticket` calls.
+- Added `proxytrace/replay/exploratory_replay.py`.
+- Added exploratory replay API endpoints:
+  - `POST /replay/exploratory`
+  - `POST /runs/{run_id}/replay/exploratory`
+- Added `proxytrace/evaluator/divergence_diff.py`.
+- Added trajectory diff with changed step count and tool sequence comparison.
+- Added semantic final-state diff for `update_ticket` outcomes.
+- Added `proxytrace/evaluator/hybrid_evaluator.py`.
+- Added deterministic evaluator output with:
+  - `root_cause_step`
+  - `divergence_type`
+  - `affected_steps`
+  - `risk_level`
+  - `recommendation`
+  - `judge_confidence`
+- Verified exploratory replay against Neon:
+  - original run ID: `e162e15f-54c3-4ade-a762-694d37da1cd4`
+  - exploratory replay ID: `ca39b769-f0c1-44fd-b468-282033079134`
+  - patched step: 2
+  - patched board: `SECURITY`
+  - affected downstream step: 4
+  - semantic final state changed to `board=SECURITY`
+- Verified exploratory replay through the FastAPI endpoint:
+  - endpoint: `POST /runs/{run_id}/replay/exploratory`
+  - exploratory replay ID: `4fbf37fd-00d9-4f96-ab03-50dff0a6d88f`
+  - patched board: `BILLING`
+  - semantic final state changed
+  - risk level returned as `high`
+- Added tests for patch propagation, divergence diff, and deterministic evaluator.
+
 ## Current Files That Matter
 
 - `README.md` - judge-facing project explanation and setup path.
@@ -126,6 +159,10 @@ What is not fully proven yet:
 - `proxytrace/llm_adapter/adapter.py` - LLM snapshot capture helper.
 - `proxytrace/llm_adapter/gemini_patch.py` - Gemini SDK monkey-patch capture path.
 - `proxytrace/replay/strict_replay.py` - strict replay engine.
+- `proxytrace/replay/exploratory_replay.py` - exploratory replay engine.
+- `proxytrace/patch/patch_engine.py` - prompt and tool-result patch application.
+- `proxytrace/evaluator/divergence_diff.py` - trajectory and semantic final-state diff.
+- `proxytrace/evaluator/hybrid_evaluator.py` - deterministic evaluator verdicts.
 - `proxytrace/replay/firewall.py` - side-effect firewall.
 - `proxytrace/contracts/registry.py` - default tool contracts.
 - `proxytrace/db/models.py` - Neon/PostgreSQL table models.
@@ -157,13 +194,12 @@ What is not fully proven yet:
 
 ### Phase 2
 
-1. Add `proxytrace/patch/patch_engine.py`.
-2. Implement prompt patch and tool-result patch first.
-3. Add exploratory replay from a patch point.
-4. Add trajectory diff and semantic outcome diff.
-5. Add Gemini structured scorer with strict JSON validation.
-6. Add hybrid evaluator: deterministic checks first, Gemini explanation second.
-7. Add regression promotion endpoint.
+1. Add Gemini structured scorer with strict JSON validation.
+2. Wire Gemini scorer into the hybrid evaluator after deterministic checks.
+3. Add low-confidence human review handling from scorer output.
+4. Add regression promotion endpoint.
+5. Add regression runner skeleton.
+6. Add API/tests for replay lookup and regression pack inspection.
 
 ### Phase 3
 

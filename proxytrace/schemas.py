@@ -42,3 +42,19 @@ class LLMCaptureRequest(BaseModel):
 class StrictReplayRequest(BaseModel):
     run_id: str
 
+
+class PatchPayload(BaseModel):
+    patch_type: Literal["prompt_patch", "tool_result_patch"]
+    value: JsonObject = Field(default_factory=dict)
+    note: str | None = None
+
+
+class ExploratoryReplayRequest(BaseModel):
+    run_id: str
+    patch_step: int = Field(ge=1)
+    patch: PatchPayload
+
+
+class ExploratoryReplayForRunRequest(BaseModel):
+    patch_step: int = Field(ge=1)
+    patch: PatchPayload
