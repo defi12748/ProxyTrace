@@ -223,3 +223,5 @@ __marimo__/
 # ProxyTrace local artifacts
 .forge/
 node_modules/
+evaluation_report.md
+proxytrace/data/synthetic_traces.json

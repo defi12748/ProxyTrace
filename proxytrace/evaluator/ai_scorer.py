@@ -3,10 +3,15 @@ from __future__ import annotations
 import json
 from typing import Any, Literal
 
-from google import genai
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from proxytrace.settings import get_settings
+
+
+try:
+    from google import genai
+except ImportError:  # pragma: no cover - exercised in environments without google-genai.
+    genai = None  # type: ignore[assignment]
 
 
 DivergenceType = Literal[
@@ -59,6 +64,11 @@ class GeminiScorer:
         if not self.api_key:
             return self._fallback(
                 reason="missing_gemini_api_key",
+                deterministic_verdict=deterministic_verdict,
+            )
+        if genai is None:
+            return self._fallback(
+                reason="missing_google_genai_dependency",
                 deterministic_verdict=deterministic_verdict,
             )
 

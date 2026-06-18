@@ -29,11 +29,6 @@ def main() -> None:
         type=Path,
         default=Path("evaluation_report.md"),
     )
-    parser.add_argument(
-        "--no-ai",
-        action="store_true",
-        help="Disable Gemini calls and produce fallback/human-review metrics.",
-    )
     args = parser.parse_args()
 
     labels = load_labels(args.labels)
@@ -41,7 +36,7 @@ def main() -> None:
     write_synthetic_traces(traces, args.traces_out)
 
     evaluation = EvaluationRunner(
-        config=EvaluationConfig(use_ai=not args.no_ai),
+        config=EvaluationConfig(use_ai=True),
     ).evaluate(traces)
     write_evaluation_report(evaluation, args.report_out)
 

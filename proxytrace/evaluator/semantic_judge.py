@@ -3,10 +3,15 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from google import genai
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from proxytrace.settings import get_settings
+
+
+try:
+    from google import genai
+except ImportError:  # pragma: no cover - exercised in environments without google-genai.
+    genai = None  # type: ignore[assignment]
 
 
 class SemanticOutcomeOutput(BaseModel):
@@ -43,6 +48,8 @@ class SemanticOutcomeJudge:
             return self._fallback("semantic_judge_disabled")
         if not self.api_key:
             return self._fallback("missing_gemini_api_key")
+        if genai is None:
+            return self._fallback("missing_google_genai_dependency")
         if not trace_context:
             return self._fallback("missing_trace_context")
 

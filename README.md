@@ -49,14 +49,12 @@ ProxyTrace addresses this by preserving the execution state of a run and replayi
 
 ### Remaining Work
 
-1. Generate the 20-trace synthetic evaluation set against the existing label targets, then run and publish the evaluation report.
-2. Validate the Gemini semantic outcome judge on those traces and report confidence / human-review behavior.
-3. Complete the public Render deployment and verify the health check.
-4. Deploy the FastAPI backend and set production env vars on Render.
-5. Embed the React console inside a Forge issue panel.
-6. Add Jira workflow transition support after reading the project transition IDs.
-7. Add Alembic migrations — the schema is currently created with `create_all`.
-8. Extend the regression runner to re-execute a fresh agent version against frozen assertions, rather than only checking consistency of the frozen trace itself.
+1. Complete the public Render deployment and verify the health check.
+2. Set production Render env vars for Neon, Gemini, Atlassian, redaction, and backend/frontend URLs.
+3. Embed the React console inside a Forge issue panel.
+4. Add Jira workflow transition support after reading the project transition IDs.
+5. Publish the final evaluation/SPEC artifacts and demo video.
+6. Extend the regression runner to re-execute a fresh agent version against frozen assertions, rather than only checking consistency of the frozen trace itself.
 
 ## Architecture
 
@@ -146,14 +144,23 @@ GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-3.1-flash-lite
 ```
 
-3. Install dependencies and initialize the database.
+3. Install dependencies and apply the database schema.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
+
+# Apply the Alembic migration (creates all tables)
+alembic upgrade head
+
+# Seed default tool contracts (get_project_key, update_ticket)
 python -m proxytrace.db.init_db
 ```
+
+`alembic upgrade head` is the authoritative schema bootstrap for both local and deployed environments.
+`python -m proxytrace.db.init_db` seeds the default tool contracts the proxy needs on first run.
+It does **not** create or alter tables — that is Alembic's job exclusively.
 
 4. Run the backend.
 
@@ -188,6 +195,89 @@ Expected replay properties:
 - write tools are marked `side_effect_blocked`
 - `determinism_rate` reflects recorded-vs-replayed step sequence matching
 - side-effect warnings are written to `drift_warnings`
+
+## Database Migrations
+
+ProxyTrace uses [Alembic](https://alembic.sqlalchemy.org/) for schema management.
+All table creation and alteration is owned by migrations — `proxytrace.db.init_db` only seeds seed data.
+
+### Files
+
+| File | Purpose |
+|---|---|
+| `alembic.ini` | Alembic configuration; `script_location = migrations` |
+| `migrations/env.py` | Loads `DATABASE_URL` from env via `proxytrace.settings`; runs async migrations |
+| `migrations/script.py.mako` | Template for new migration scripts |
+| `migrations/versions/20260618_0001_initial_schema.py` | Initial migration — creates all six tables |
+
+### Common Commands
+
+```powershell
+# Apply all pending migrations (deploy and local bootstrap)
+alembic upgrade head
+
+# Show current applied revision
+alembic current
+
+# Show full migration history
+alembic history --verbose
+
+# Roll back the most recent migration (development only)
+alembic downgrade -1
+
+# Auto-generate a new migration after editing models.py
+# (always review the generated file before committing)
+alembic revision --autogenerate -m "describe your change"
+```
+
+### Creating a New Migration
+
+1. Edit `proxytrace/db/models.py` with the schema change.
+2. Run `alembic revision --autogenerate -m "short description"`.
+3. Review the generated file in `migrations/versions/`.
+4. Apply it locally with `alembic upgrade head`.
+5. Commit both the model change and the migration file together.
+
+### Deployment
+
+`render.yaml` runs `alembic upgrade head` as part of the build command before the service starts.
+No manual schema management is needed on Render — migrations run automatically on every deploy.
+
+```yaml
+buildCommand: pip install -e . && alembic upgrade head
+```
+
+## Render Deployment Check
+
+Render uses `render.yaml` to install dependencies, run `alembic upgrade head`, and start the FastAPI service. Configure these environment variables in Render:
+
+```text
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/proxytrace?sslmode=require
+PROXYTRACE_API_URL=https://YOUR-RENDER-SERVICE.onrender.com
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-3.1-flash-lite
+REDACTION_ENABLED=true
+DEMO_TOOL_MODE=true
+```
+
+Verify the deployed API:
+
+```powershell
+$baseUrl = "https://YOUR-RENDER-SERVICE.onrender.com"
+Invoke-RestMethod "$baseUrl/health"
+```
+
+Record and replay a deployed trace:
+
+```powershell
+$env:PROXYTRACE_API_URL = $baseUrl
+python -m proxytrace.agent_demo.run_demo --issue-key DEMO-RENDER-1 --summary "API deploy pipeline fails" --description "The platform release pipeline fails after an API change."
+$runId = "<run_id from demo output>"
+Invoke-RestMethod -Method Post "$baseUrl/runs/$runId/replay/strict"
+Invoke-RestMethod "$baseUrl/runs/$runId/warnings"
+```
+
+The strict replay should report `live_call_count=0`, `determinism_rate=1.0`, and a blocked `update_ticket` side effect warning.
 
 ## API Surface
 
@@ -260,10 +350,16 @@ proxytrace/
   proxy/               FastAPI app, routes, MCP-style proxy
   regression_pack/     regression promotion and assertion runner
   replay/              strict and exploratory replay engines
+migrations/
+  env.py               Alembic async migration runner
+  versions/            versioned migration scripts
 tests/
   test_*.py            focused backend tests
 frontend/              React/Vite ProxyTrace console
+alembic.ini            Alembic configuration
 render.yaml            Render web service configuration
+Makefile               local dev convenience targets
+start.ps1              local launcher for backend and frontend
 ```
 
 ---

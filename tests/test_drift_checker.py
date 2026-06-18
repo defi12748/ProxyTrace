@@ -10,6 +10,8 @@ import pytest
 
 from proxytrace.contracts.schema_hasher import hash_schema, hash_json
 from proxytrace.drift.checker import DriftChecker, DriftKind
+from proxytrace.proxy.mcp_proxy import ToolProxyGateway
+from proxytrace.schemas import ToolCallRequest
 
 
 # --------------------------------------------------------------------------- #
@@ -315,3 +317,84 @@ async def test_empty_tool_name_returns_no_drift() -> None:
         result = await checker.check_step(session, step=step, run_id="run-xyz")
 
     assert not result.drifted
+
+
+# --------------------------------------------------------------------------- #
+# MCP gateway automatic drift checks                                           #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.asyncio
+async def test_mcp_gateway_runs_drift_check_after_recording_tool_step() -> None:
+    contract = SimpleNamespace(
+        tool_name="get_project_key",
+        version="v1",
+        tool_type="read",
+        input_schema_hash=_INPUT_HASH,
+        output_schema_hash=_OUTPUT_HASH,
+        descriptor_hash=_DESCRIPTOR_HASH,
+        side_effect=False,
+        requires_approval=False,
+        replay_policy="mock_from_recording",
+        trust_level="trusted_internal",
+    )
+    step = SimpleNamespace(
+        step_id="step-123",
+        run_id="run-123",
+        step_index=2,
+        step_type="tool",
+        payload={},
+        snapshot={},
+        recorded_at=None,
+    )
+    drift_checker = SimpleNamespace(
+        check_step=AsyncMock(
+            return_value=SimpleNamespace(
+                tool_name="get_project_key",
+                step_id="step-123",
+                drifted=False,
+                findings=[],
+            )
+        )
+    )
+
+    class FakeGateway(ToolProxyGateway):
+        async def _execute_tool(self, tool_name: str, params: dict[str, Any]) -> Any:
+            assert tool_name == "get_project_key"
+            return _CANONICAL_OUTPUT
+
+    request = ToolCallRequest(
+        run_id="run-123",
+        tool_name="get_project_key",
+        params=_CANONICAL_INPUT,
+        step_index=2,
+    )
+    session = AsyncMock()
+
+    with patch(
+        "proxytrace.proxy.mcp_proxy.get_contract_or_default",
+        new=AsyncMock(return_value=contract),
+    ), patch(
+        "proxytrace.proxy.mcp_proxy.record_step",
+        new=AsyncMock(return_value=step),
+    ) as mock_record_step:
+        response = await FakeGateway(drift_checker=drift_checker).record_and_execute(
+            session,
+            request,
+        )
+
+    drift_checker.check_step.assert_awaited_once_with(
+        session,
+        step=step,
+        run_id="run-123",
+    )
+    recorded_snapshot = mock_record_step.await_args.kwargs["snapshot"]
+    assert recorded_snapshot["contract_descriptor_hash"] == _DESCRIPTOR_HASH
+    assert response["drift"] == {
+        "checked": True,
+        "tool_name": "get_project_key",
+        "step_id": "step-123",
+        "drifted": False,
+        "finding_count": 0,
+        "findings": [],
+    }

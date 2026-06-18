@@ -14,7 +14,7 @@ from proxytrace.regression_pack.pack_store import (
     regression_item_to_dict,
 )
 from proxytrace.regression_pack.runner import RegressionRunner
-from proxytrace.schemas import RegressionPromoteRequest
+from proxytrace.schemas import RegressionPromoteRequest, RegressionRunAllRequest
 
 
 router = APIRouter(tags=["regression"])
@@ -48,9 +48,14 @@ async def list_regression_pack(
 
 @router.post("/regression/run-all")
 async def run_all_regressions(
+    request: RegressionRunAllRequest | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, object]:
     items = await list_regression_items(session, limit=500)
-    result = await runner.run_all(session, items)
+    result = await runner.run_all(
+        session,
+        items,
+        candidate_traces=(request.candidate_traces if request else {}),
+    )
     await session.commit()
     return result
