@@ -14,9 +14,9 @@ Execution tracing, deterministic replay, and regression capture for enterprise A
 
 ProxyTrace is a debugging and evaluation layer for tool-using AI agents in enterprise workflows. It records an agent run as a structured trace, replays the run from stored snapshots instead of live calls, blocks side-effecting tools during replay, and lets a developer patch a step to see how the trajectory changes.
 
-The current implementation targets a Jira triage agent with two tools: `get_project_key` (read-only lookup) and `update_ticket` (write tool that changes ticket routing state).
+The current implementation targets a Jira triage agent with two tools: `get_project_key` (read-only Jira project lookup) and `update_ticket` (controlled Jira write, currently implemented as a trace comment).
 
-The backend and the Phase 2 replay/evaluation path are implemented and verified against Neon PostgreSQL. Render deployment, Forge UI integration, and real Jira workspace execution are still pending — see [Status](#status).
+The backend and the Phase 2 replay/evaluation path are implemented and verified against Neon PostgreSQL. Real Jira issue lookup is wired locally. Render deployment and Forge UI integration are still pending — see [Status](#status).
 
 ## Problem
 
@@ -45,17 +45,18 @@ ProxyTrace addresses this by preserving the execution state of a run and replayi
 | Regression capture | Implemented as frozen trace assertions and AI-derived semantic assertions. Fresh-agent regression re-execution is pending. |
 | Data sensitivity | Implemented for capture paths with recursive redaction before prompt/tool payloads are stored. |
 | Contract drift detection | Implemented. `/mcp` records descriptor hashes, checks drift automatically, and drift endpoints support on-demand re-checks. |
-| Frontend console | Implemented as a React/Vite operator console for trace list, timeline, inspector, replay, patch, diff, drift, and regression flows. Forge embedding is pending. |
+| Frontend console | Implemented as a React/Vite operator console for Jira issue trigger, trace list, timeline, inspector, replay, patch, diff, drift, and regression flows. Forge embedding is pending. |
 
 ### Remaining Work
 
 1. Generate the 20-trace synthetic evaluation set against the existing label targets, then run and publish the evaluation report.
 2. Validate the Gemini semantic outcome judge on those traces and report confidence / human-review behavior.
 3. Complete the public Render deployment and verify the health check.
-4. Connect a real Atlassian/Jira developer workspace (demo tools currently use local handlers).
+4. Deploy the FastAPI backend and set production env vars on Render.
 5. Embed the React console inside a Forge issue panel.
-6. Add Alembic migrations — the schema is currently created with `create_all`.
-7. Extend the regression runner to re-execute a fresh agent version against frozen assertions, rather than only checking consistency of the frozen trace itself.
+6. Add Jira workflow transition support after reading the project transition IDs.
+7. Add Alembic migrations — the schema is currently created with `create_all`.
+8. Extend the regression runner to re-execute a fresh agent version against frozen assertions, rather than only checking consistency of the frozen trace itself.
 
 ## Architecture
 
@@ -168,10 +169,10 @@ npm install
 npm run dev
 ```
 
-6. Record a demo trace from the UI, or use the CLI.
+6. Trace a real Jira issue from the UI, or use the API.
 
 ```powershell
-python -m proxytrace.agent_demo.run_demo --issue-key DEMO-1 --summary "API deploy pipeline fails" --description "The platform release pipeline fails after an API change."
+Invoke-RestMethod -Method Post "http://127.0.0.1:8000/jira/trace" -ContentType "application/json" -Body '{"issue_key":"SCRUM-1"}'
 ```
 
 7. Run strict replay from the UI, or use the API.
@@ -197,6 +198,8 @@ Expected replay properties:
 | `GET /runs` | list recorded runs |
 | `GET /runs/{run_id}` | inspect run metadata and steps |
 | `GET /runs/{run_id}/warnings` | inspect firewall and drift warnings |
+| `GET /jira/issues/{issue_key}` | fetch a real Jira issue from Atlassian Cloud |
+| `POST /jira/trace` | trigger a traced agent run from a real Jira issue key |
 | `POST /llm/capture` | record an LLM prompt/response snapshot |
 | `POST /mcp` | proxy and record a tool call |
 | `POST /drift/check` | check one recorded tool step for contract drift |
@@ -218,6 +221,7 @@ On Windows, `start.ps1` stops existing listeners on ports `8000` and `5173`, sta
 
 Current views:
 
+- real Jira issue trigger by issue key
 - trace list filtered by Jira issue key
 - ordered LLM/tool timeline
 - step inspector for payload and snapshot JSON

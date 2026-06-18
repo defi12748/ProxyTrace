@@ -25,6 +25,10 @@ async def get_project_key(params: dict[str, Any]) -> dict[str, Any]:
     )
     return {
         "project_key": board,
+        "project_name": f"Demo {board.title()}",
+        "issue_key": params.get("issue_key"),
+        "issue_type": "Task",
+        "status": "Recorded",
         "confidence": confidence,
         "evidence": evidence,
         "source": "demo_tool",
@@ -38,6 +42,7 @@ async def update_ticket(params: dict[str, Any]) -> dict[str, Any]:
         "board": params.get("board"),
         "reason": params.get("reason"),
         "status": "mocked_local_demo",
+        "comment_id": "",
         "source": "demo_tool",
     }
 
@@ -46,4 +51,3 @@ DEMO_TOOL_HANDLERS = {
     "get_project_key": get_project_key,
     "update_ticket": update_ticket,
 }
-

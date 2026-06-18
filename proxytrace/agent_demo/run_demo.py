@@ -9,11 +9,11 @@ from proxytrace.agent_demo.agent import JiraTriagingAgent
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the ProxyTrace Jira demo agent.")
-    parser.add_argument("--issue-key", default="DEMO-1")
-    parser.add_argument("--summary", default="API deploy pipeline fails for enterprise customer")
+    parser.add_argument("--issue-key", default="SCRUM-1")
+    parser.add_argument("--summary", default="Task 1")
     parser.add_argument(
         "--description",
-        default="The platform release pipeline fails during deployment after an API change.",
+        default="Trace the Jira issue through ProxyTrace.",
     )
     return parser.parse_args()
 
@@ -31,4 +31,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

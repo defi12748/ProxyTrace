@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from proxytrace.atlassian.tools import JIRA_TOOL_HANDLERS
 from proxytrace.contracts.registry import get_contract_or_default
 from proxytrace.contracts.schema_hasher import hash_schema
 from proxytrace.db.repository import contract_to_dict, record_step, step_to_dict
@@ -93,17 +94,31 @@ class ToolProxyGateway:
 
     async def _execute_tool(self, tool_name: str, params: dict[str, Any]) -> Any:
         settings = get_settings()
-        if settings.demo_tool_mode or not settings.tool_upstream_base_url:
+        if not settings.demo_tool_mode and settings.atlassian_configured:
+            handler = JIRA_TOOL_HANDLERS.get(tool_name)
+            if handler is None:
+                raise ValueError(f"No Jira handler registered for tool {tool_name!r}")
+            return await handler(params)
+
+        if settings.tool_upstream_base_url:
+            base_url = settings.tool_upstream_base_url.rstrip("/")
+            async with httpx.AsyncClient(timeout=settings.tool_timeout_seconds) as client:
+                response = await client.post(f"{base_url}/tools/{tool_name}", json=params)
+                response.raise_for_status()
+                return response.json()
+
+        if not settings.demo_tool_mode:
+            raise RuntimeError(
+                "Real tool mode requires Atlassian credentials or TOOL_UPSTREAM_BASE_URL."
+            )
+
+        if settings.demo_tool_mode:
             handler = DEMO_TOOL_HANDLERS.get(tool_name)
             if handler is None:
                 raise ValueError(f"No demo handler registered for tool {tool_name!r}")
             return await handler(params)
 
-        base_url = settings.tool_upstream_base_url.rstrip("/")
-        async with httpx.AsyncClient(timeout=settings.tool_timeout_seconds) as client:
-            response = await client.post(f"{base_url}/tools/{tool_name}", json=params)
-            response.raise_for_status()
-            return response.json()
+        raise ValueError(f"No handler registered for tool {tool_name!r}")
 
     def _snapshot_with_contract_metadata(
         self,

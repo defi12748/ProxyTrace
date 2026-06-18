@@ -62,3 +62,7 @@ class ExploratoryReplayForRunRequest(BaseModel):
 
 class RegressionPromoteRequest(BaseModel):
     replay_id: str
+
+
+class JiraTraceRequest(BaseModel):
+    issue_key: str

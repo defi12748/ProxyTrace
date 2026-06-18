@@ -35,12 +35,16 @@ import {
   type StrictReplay,
   type Warning
 } from "./api";
-import { recordDemoTrace } from "./demoTrace";
 
 const DEFAULT_API_BASE =
   import.meta.env.VITE_PROXYTRACE_API_URL || "http://127.0.0.1:8000";
 
-const PATCH_BOARDS = ["PLATFORM", "SECURITY", "BILLING", "INFRA"];
+const ROUTE_OPTIONS = [
+  { value: "PLATFORM", label: "Platform" },
+  { value: "SECURITY", label: "Customer Security" },
+  { value: "BILLING", label: "Billing" },
+  { value: "INFRA", label: "Infrastructure" }
+];
 
 function getInitialApiBase(): string {
   const saved = localStorage.getItem("proxytrace_api_base") || DEFAULT_API_BASE;
@@ -185,6 +189,7 @@ function buildGraph(
 export function App() {
   const [apiBase] = useState(getInitialApiBase);
   const [issueFilter, setIssueFilter] = useState("");
+  const [traceIssueKey, setTraceIssueKey] = useState("");
   const [runs, setRuns] = useState<Run[]>([]);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [detail, setDetail] = useState<RunDetail | null>(null);
@@ -298,15 +303,22 @@ export function App() {
       .finally(() => setBusy(null));
   }, [loadRunDetail, selectedRunId]);
 
-  async function runDemo() {
-    setBusy("demo");
+  async function traceJiraIssue() {
+    const issueKey = traceIssueKey.trim().toUpperCase();
+    if (!issueKey) {
+      setError("Enter a Jira issue key first.");
+      return;
+    }
+    setBusy("jira");
     setError(null);
     try {
-      const runId = await recordDemoTrace(api);
-      setSelectedRunId(runId);
+      const response = await api.post<{ run_id: string }>("/jira/trace", {
+        issue_key: issueKey
+      });
+      setSelectedRunId(response.run_id);
       await loadRuns();
       await loadRegressions();
-      setNotice("Demo trace recorded");
+      setNotice(`Trace recorded for ${issueKey}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -417,18 +429,35 @@ export function App() {
         </div>
 
         <div className="top-actions">
+          <div className="issue-trigger">
+            <input
+              value={traceIssueKey}
+              onChange={(event) => setTraceIssueKey(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  void traceJiraIssue();
+                }
+              }}
+              placeholder="SCRUM-1"
+              aria-label="Jira issue key"
+            />
+            <button
+              className="primary-button"
+              onClick={traceJiraIssue}
+              disabled={busy !== null}
+            >
+              <Play size={16} />
+              Trace Issue
+            </button>
+          </div>
           <button className="icon-button" onClick={refresh} disabled={busy !== null}>
             <RefreshCw size={16} />
             Sync
           </button>
-          <button className="primary-button" onClick={runDemo} disabled={busy !== null}>
-            <Play size={16} />
-            Record Trace
-          </button>
         </div>
       </header>
 
-      {(notice || error) && (
+      {(error || (notice && notice !== "Ready")) && (
         <section className={error ? "notice error" : "notice"}>
           <span>{error ?? notice}</span>
           {busy && <strong>{busy}</strong>}
@@ -517,7 +546,7 @@ export function App() {
               </button>
               <button onClick={runPatchReplay} disabled={!detail || busy !== null}>
                 <Split size={15} />
-                Patch
+                What-if
               </button>
             </div>
           </div>
@@ -557,7 +586,6 @@ export function App() {
               proOptions={{ hideAttribution: true }}
             >
               <Background gap={18} size={1} />
-              <MiniMap pannable zoomable />
               <Controls />
             </ReactFlow>
           </div>
@@ -587,16 +615,16 @@ export function App() {
           <section className="action-block">
             <div className="block-heading">
               <Sparkles size={16} />
-              <span>Patch Replay</span>
+              <span>What-if Route</span>
             </div>
             <div className="board-picker">
-              {PATCH_BOARDS.map((board) => (
+              {ROUTE_OPTIONS.map((board) => (
                 <button
-                  key={board}
-                  className={patchBoard === board ? "board active" : "board"}
-                  onClick={() => setPatchBoard(board)}
+                  key={board.value}
+                  className={patchBoard === board.value ? "board active" : "board"}
+                  onClick={() => setPatchBoard(board.value)}
                 >
-                  {board}
+                  {board.label}
                 </button>
               ))}
             </div>
@@ -606,7 +634,7 @@ export function App() {
               disabled={!detail || patchStep === null || busy !== null}
             >
               <Split size={16} />
-              Run Exploratory Replay
+              Run What-if Replay
             </button>
           </section>
 

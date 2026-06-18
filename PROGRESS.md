@@ -281,6 +281,17 @@ What is not fully proven yet:
 - Added `start.ps1` to stop existing local listeners, start backend/frontend in separate Windows Terminal tabs or PowerShell windows, and open the console.
 - Verified `npm run build` passes.
 
+### 2026-06-18 Real Jira Trigger Start
+
+- Added Atlassian Cloud client using `ATLASSIAN_SITE_URL`, `ATLASSIAN_EMAIL`, and `ATLASSIAN_API_TOKEN`.
+- Added real Jira tool handlers:
+  - `get_project_key` fetches the live Jira issue project/status/type.
+  - `update_ticket` writes a controlled Jira comment as the first real side effect.
+- Added `POST /jira/trace` to trigger a traced agent run from a real Jira issue key.
+- Added `GET /jira/issues/{issue_key}` for read-only Jira issue validation.
+- Replaced the frontend mock trace button with a Jira issue-key trigger.
+- Verified read-only Jira fetch for `SCRUM-1` returns project `SCRUM`, project name `VECTORS`, status `To Do`, summary `Task 1`.
+
 ## Current Files That Matter
 
 - `README.md` - judge-facing project explanation and setup path.
@@ -288,6 +299,8 @@ What is not fully proven yet:
 - `render.yaml` - Render web service deploy config.
 - `proxytrace/proxy/main.py` - FastAPI app.
 - `proxytrace/proxy/mcp_proxy.py` - tool proxy gateway.
+- `proxytrace/atlassian/jira_client.py` - real Jira Cloud REST client.
+- `proxytrace/atlassian/tools.py` - real Jira tool handlers for recording mode.
 - `proxytrace/agent_demo/agent.py` - demo Jira triaging agent.
 - `proxytrace/llm_adapter/adapter.py` - LLM snapshot capture helper.
 - `proxytrace/llm_adapter/gemini_patch.py` - Gemini SDK monkey-patch capture path.
@@ -304,7 +317,7 @@ What is not fully proven yet:
 - `proxytrace/replay/firewall.py` - side-effect firewall.
 - `proxytrace/drift/checker.py` - contract drift detection across input schema, output schema, and descriptor.
 - `proxytrace/proxy/routes/drift.py` - drift check API endpoints.
-- `frontend` - React/Vite standalone console for the demo loop.
+- `frontend` - React/Vite standalone console for Jira-triggered trace/replay loop.
 - `start.ps1` - local launcher for backend + frontend.
 - `proxytrace/contracts/registry.py` - default tool contracts.
 - `proxytrace/db/models.py` - Neon/PostgreSQL table models.
@@ -328,7 +341,7 @@ What is not fully proven yet:
    - `GEMINI_MODEL=gemini-3.1-flash-lite`
    - `REDACTION_ENABLED=true`
 3. Verify Render `GET /health` returns 200.
-4. Run the demo agent through the Render `/mcp` URL.
+4. Run `POST /jira/trace` through the Render URL for `SCRUM-1`.
 5. Run strict replay on Render-recorded traces and confirm:
    - determinism rate is `1.0`
    - live call count is `0`
@@ -338,7 +351,7 @@ What is not fully proven yet:
 ### Phase 1 Hardening
 
 1. Add Alembic migrations to replace direct `create_all` for production readiness.
-2. Wire the demo tools to a real Atlassian developer workspace.
+2. Add Jira workflow transition support after reading available transition IDs.
 3. Add deeper tests for proxy recording and strict replay.
 
 ### Phase 2
@@ -353,7 +366,7 @@ What is not fully proven yet:
 
 1. Polish the standalone console after one live demo pass.
 2. Add a Forge issue-panel wrapper around the React console.
-3. Connect Forge issue context to `GET /runs?jira_issue_key={key}`.
+3. Connect Forge issue context to `POST /jira/trace` and `GET /runs?jira_issue_key={key}`.
 4. Deploy Forge app against the Render backend.
 5. Record the full issue-panel demo path.
 
