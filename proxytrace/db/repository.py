@@ -225,6 +225,20 @@ async def log_drift_warning(
     new_hash: str | None = None,
     details: str = "",
 ) -> DriftWarning:
+    # Deduplicate: return the existing row if this (step_id, warning_type)
+    # combination has already been recorded, so repeated calls to check_step
+    # on the same step are idempotent.
+    if step_id is not None:
+        existing = await session.execute(
+            select(DriftWarning).where(
+                DriftWarning.step_id == step_id,
+                DriftWarning.warning_type == warning_type,
+            )
+        )
+        row = existing.scalar_one_or_none()
+        if row is not None:
+            return row
+
     warning = DriftWarning(
         run_id=run_id,
         step_id=step_id,
