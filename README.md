@@ -108,7 +108,7 @@ sequenceDiagram
     Replay->>Store: load recorded steps
     Replay->>Replay: serve LLM output from snapshot
     Replay->>Firewall: inspect update_ticket contract
-    Firewall-->>Replay: blocked_mocked_from_recording
+    Firewall-->>Replay: blocked: side_effect_blocked
     Replay->>Store: log side_effect_blocked warning
     Replay-->>User: determinism_rate=1.0, live_call_count=0
 ```
@@ -145,7 +145,7 @@ Expected replay properties:
 
 - `determinism_rate` is `1.0`
 - `live_call_count` is `0`
-- `update_ticket` is marked `blocked_mocked_from_recording`
+- `update_ticket` is marked `side_effect_blocked`
 - a `side_effect_blocked` warning is written for the replayed write tool
 
 ## Neon + Render + Forge Path
@@ -179,6 +179,8 @@ The judging/demo target is Neon PostgreSQL + Render FastAPI backend + Forge.
 | `POST /regression/promote` | freeze an exploratory replay into regression assertions |
 | `GET /regression` | list promoted regression tests |
 | `POST /regression/run-all` | run frozen regression assertions |
+
+Current regression limitation: `run-all` validates frozen trace consistency and final-state assertions without re-executing a fresh live agent run. True production regression testing will replay a new agent version and compare it against the frozen assertions.
 
 ## Repository Structure
 

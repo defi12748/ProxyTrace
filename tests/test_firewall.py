@@ -23,5 +23,4 @@ def test_firewall_blocks_write_tools_in_strict_replay() -> None:
     )
 
     assert decision.allowed is False
-    assert decision.action == "blocked_mocked_from_recording"
-
+    assert decision.action == "side_effect_blocked"

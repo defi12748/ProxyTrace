@@ -30,7 +30,7 @@ class SideEffectFirewall:
         if contract.tool_type in BLOCKED_TOOL_TYPES or contract.side_effect:
             return FirewallDecision(
                 allowed=False,
-                action="blocked_mocked_from_recording",
+                action="side_effect_blocked",
                 reason=(
                     f"{tool_name} is classified as {contract.tool_type}; "
                     "strict replay cannot forward side-effecting tools."
@@ -48,4 +48,3 @@ class SideEffectFirewall:
             reason="Read-only tool response served from recorded snapshot.",
             details={"tool_name": tool_name, "replay_policy": contract.replay_policy},
         )
-

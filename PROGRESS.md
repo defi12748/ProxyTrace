@@ -268,4 +268,5 @@ What is not fully proven yet:
 - No Render deployment yet means Forge Remote cannot call the backend yet.
 - No Forge spike yet means commercial integration is not proven.
 - No real Jira workspace run yet means the current demo agent is still a local proxy proof.
+- Regression runner currently validates frozen trace consistency and final-state assertions. It does not yet re-execute a fresh agent version against the frozen assertions.
 - Gemini model name is set to `gemini-3.1-flash-lite`; if the provider exposes a different canonical ID, update env only.
