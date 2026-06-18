@@ -26,6 +26,7 @@ DEFAULT_TOOL_DESCRIPTORS: dict[str, dict[str, Any]] = {
             "project_key": "PLATFORM",
             "confidence": 0.92,
             "evidence": ["platform", "deploy"],
+            "source": "demo_tool",
         },
     },
     "update_ticket": {
@@ -44,7 +45,9 @@ DEFAULT_TOOL_DESCRIPTORS: dict[str, dict[str, Any]] = {
             "updated": True,
             "issue_key": "DEMO-1",
             "board": "PLATFORM",
+            "reason": "The incident affects platform deployment.",
             "status": "mocked_local_demo",
+            "source": "demo_tool",
         },
     },
 }
@@ -103,4 +106,3 @@ async def get_contract_or_default(
     session.add(contract)
     await session.flush()
     return contract
-

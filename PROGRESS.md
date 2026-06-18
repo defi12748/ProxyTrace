@@ -14,16 +14,16 @@ The current highest-scoring risk is the global requirement that AI must be the m
 
 ## Completion Estimate
 
-Overall docx plan: about 43% complete.
+Overall docx plan: about 44% complete.
 
-Phase 1 foundation code: about 90% complete.
+Phase 1 foundation code: about 93% complete.
 
 Phase 1 gate proof: about 68% complete, because the code path has now been proven with Neon, 5 demo traces, and one live Gemini-patched LLM capture run, but not yet with Render, Forge Remote, or real Jira tools.
 
 Breakdown:
 
 - Day 0 infrastructure: about 45%; Neon schema init is verified, Render config exists, but Render deploy and Forge spike are not connected yet.
-- Phase 1 recording/proxy/replay/firewall: about 90%; core backend modules exist, 5 Neon-backed demo traces replayed, Gemini SDK capture was verified, drift checker is fully wired and tested, but real Atlassian verification is still missing.
+- Phase 1 recording/proxy/replay/firewall: about 93%; core backend modules exist, 5 Neon-backed demo traces replayed, Gemini SDK capture was verified, drift checker is automatically wired into `/mcp`, drift endpoints are route-tested, but real Atlassian verification is still missing.
 - Phase 2 patch/diff/evaluator/regression: about 90%; patch engine, exploratory replay, divergence diff, Gemini structured scorer, hybrid evaluator, regression promotion, and run-all exist. Remaining work is hardening and broader route-level tests.
 - Phase 3 frontend/Forge UI: 0%; not started.
 - Phase 4 evaluation/polish: about 10%; labels exist, but trace generation and metrics are not implemented.
@@ -40,7 +40,7 @@ What is aligned:
 - Data model direction: runs, steps, tool contracts, replays, regression pack, drift warnings.
 - Evaluation labels exist before scorer work.
 - Data sensitivity is now handled in capture paths with default redaction before persistence.
-- Contract drift detection is now implemented and wired into the FastAPI app.
+- Contract drift detection is now implemented, wired into the FastAPI app, and run automatically after `/mcp` records a tool step.
 
 What is not fully proven yet:
 
@@ -49,7 +49,6 @@ What is not fully proven yet:
 - The demo agent has not been run against a real Atlassian developer workspace.
 - Alembic migrations are not added yet; `proxytrace.db.init_db` creates tables directly for the foundation.
 - Gemini semantic outcome judgment is implemented, but it has not yet been validated across the 20-trace evaluation set.
-- Drift checker runs on-demand only; the MCP proxy does not yet call it automatically after every tool step is recorded.
 
 ## Done
 
@@ -230,15 +229,34 @@ What is not fully proven yet:
   - `POST /runs/{run_id}/drift/check-all` — bulk re-check of every tool step in a run; useful after a contract update
   - `GET /runs/{run_id}/drift` — lists persisted drift warnings for a run, filtered to drift-kind types only
 - Wired `drift.router` into `proxytrace/proxy/main.py`.
-- Added `tests/test_drift_checker.py` — 317-line test suite covering:
+- Added `tests/test_drift_checker.py` — unit test suite covering:
   - all three drift kinds in isolation
   - clean (no-drift) path
   - `step_type != "tool"` early exit
   - missing `tool_name` in payload
   - `step.payload is None` guard (defensive fix)
-  - API integration for all three endpoints
 - Fixed `log_drift_warning` in `proxytrace/db/repository.py` to deduplicate on `(step_id, warning_type)` — prevents duplicate warning rows if `check_step` is called more than once for the same step.
 - Fixed `GET /runs/{run_id}/drift` to filter warnings using `DriftKind` enum values rather than a fragile string-suffix match.
+
+### 2026-06-18 Auto Drift Recording
+
+- Wired `DriftChecker.check_step` into the MCP proxy recording path.
+- `/mcp` now embeds `contract_descriptor_hash` into each tool-step snapshot so descriptor drift is checkable for newly recorded traces.
+- `/mcp` now returns a compact `drift` summary with:
+  - `checked`
+  - `drifted`
+  - `finding_count`
+  - `findings`
+- Updated default tool contract output examples to match the current demo handlers and avoid false-positive drift on clean demo runs.
+- Added `tests/test_mcp_proxy.py` covering:
+  - descriptor hash snapshot enrichment
+  - automatic drift checker invocation
+  - drift summary in the proxy response
+  - demo tool response shapes matching default contract hashes
+- Added `tests/test_drift_routes.py` covering:
+  - `POST /drift/check`
+  - `POST /runs/{run_id}/drift/check-all`
+  - `GET /runs/{run_id}/drift`
 
 ## Current Files That Matter
 
@@ -296,8 +314,7 @@ What is not fully proven yet:
 
 1. Add Alembic migrations to replace direct `create_all` for production readiness.
 2. Wire the demo tools to a real Atlassian developer workspace.
-3. Wire `DriftChecker.check_step` into the MCP proxy recording path so drift is checked automatically after every tool step, not only on-demand.
-4. Add deeper tests for proxy recording and strict replay.
+3. Add deeper tests for proxy recording and strict replay.
 
 ### Phase 2
 
@@ -340,5 +357,4 @@ What is not fully proven yet:
 - No real Jira workspace run yet means the current demo agent is still a local proxy proof.
 - Regression runner currently validates frozen trace consistency and final-state assertions. It does not yet re-execute a fresh agent version against the frozen assertions.
 - Redaction covers common PII/secret patterns but still needs an evaluation note describing scope and limitations.
-- Drift checker is on-demand only; automatic post-recording drift checks are not yet wired into the MCP proxy path.
 - Gemini model name is set to `gemini-3.1-flash-lite`; if the provider exposes a different canonical ID, update env only.

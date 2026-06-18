@@ -44,6 +44,7 @@ ProxyTrace addresses this by preserving the execution state of a run and replayi
 | Human-readable verdict | Implemented at backend level through structured evaluator output. UI presentation is pending. |
 | Regression capture | Implemented as frozen trace assertions and AI-derived semantic assertions. Fresh-agent regression re-execution is pending. |
 | Data sensitivity | Implemented for capture paths with recursive redaction before prompt/tool payloads are stored. |
+| Contract drift detection | Implemented. `/mcp` records descriptor hashes, checks drift automatically, and drift endpoints support on-demand re-checks. |
 
 ### Remaining Work
 
@@ -64,7 +65,10 @@ graph LR
     LLM --> Store[("Trace Store<br/>Neon PostgreSQL")]
     Proxy --> Contracts["Tool Contract Registry"]
     Contracts --> Firewall["Side-Effect Firewall"]
+    Contracts --> Drift["Contract Drift Checker"]
+    Proxy --> Drift
     Proxy --> Store
+    Drift --> Store
     Store --> Strict["Strict Replay"]
     Store --> Explore["Exploratory Replay"]
     Explore --> Diff["Trajectory + Outcome Diff"]
@@ -77,7 +81,7 @@ ProxyTrace captures the model layer and the tool layer separately. The tool prox
 | Layer | Captures | Current Integration |
 |---|---|---|
 | Gemini SDK capture adapter | system prompt, messages, model name, response payload, token usage, prompt/response hashes | wraps `google.genai.Client.models.generate_content(...)` and posts snapshots to `POST /llm/capture` when a run context is active |
-| Tool Proxy Gateway | tool name, input parameters, output payload, latency, status, side-effect class, contract hashes | agent calls `POST /mcp`; the gateway validates the registered contract, records the step, and executes the live handler only during recording |
+| Tool Proxy Gateway | tool name, input parameters, output payload, latency, status, side-effect class, contract hashes, drift result | agent calls `POST /mcp`; the gateway validates the registered contract, records the step, executes the live handler during recording, and checks drift immediately |
 | Trace Store | run metadata, ordered steps, snapshots, replay verdicts, warnings, regression packs | Neon PostgreSQL with JSONB snapshots and async SQLAlchemy access |
 
 ## Replay, Patch & Scoring
@@ -186,6 +190,9 @@ Expected replay properties:
 | `GET /runs/{run_id}/warnings` | inspect firewall and drift warnings |
 | `POST /llm/capture` | record an LLM prompt/response snapshot |
 | `POST /mcp` | proxy and record a tool call |
+| `POST /drift/check` | check one recorded tool step for contract drift |
+| `POST /runs/{run_id}/drift/check-all` | re-check every tool step in a run |
+| `GET /runs/{run_id}/drift` | list persisted drift warnings for a run |
 | `POST /runs/{run_id}/complete` | mark a run completed or failed |
 | `POST /runs/{run_id}/replay/strict` | replay from recorded snapshots |
 | `POST /runs/{run_id}/replay/exploratory` | apply a patch and compare the branched trajectory |
@@ -215,9 +222,11 @@ proxytrace/
   contracts/           tool contract registry and schema hashing
   data/                evaluation labels and later seed data
   db/                  SQLAlchemy models, sessions, repository helpers
+  drift/               contract drift checker
   evaluator/           divergence diff, Gemini scorer, hybrid evaluator
   llm_adapter/         LLM capture helpers and Gemini SDK patch
   patch/               patch engine
+  privacy/             trace redaction helpers
   proxy/               FastAPI app, routes, MCP-style proxy
   regression_pack/     regression promotion and assertion runner
   replay/              strict and exploratory replay engines
