@@ -99,15 +99,16 @@ class DriftChecker:
         if step.step_type != "tool":
             return DriftCheckResult(tool_name="", step_id=step.step_id, drifted=False)
 
-        tool_name: str = step.payload.get("tool_name") or step.payload.get("name", "")
+        payload: dict[str, Any] = step.payload or {}
+        tool_name: str = payload.get("tool_name") or payload.get("name", "")
         if not tool_name:
             return DriftCheckResult(tool_name="", step_id=step.step_id, drifted=False)
 
         contract = await get_contract_or_default(session, tool_name)
         result = DriftCheckResult(tool_name=tool_name, step_id=step.step_id)
 
-        params: dict[str, Any] = step.payload.get("params") or {}
-        response: Any = step.payload.get("response")
+        params: dict[str, Any] = payload.get("params") or {}
+        response: Any = payload.get("response")
 
         # 1. Input schema drift
         finding = self._check_input_schema(step, tool_name, params, contract.input_schema_hash)
