@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from proxytrace.db.models import Step
 from proxytrace.db.repository import get_run, list_warnings, warning_to_dict
 from proxytrace.db.session import get_session
-from proxytrace.drift.checker import DriftChecker
+from proxytrace.drift.checker import DriftChecker, DriftKind
 
 router = APIRouter(tags=["drift"])
 _checker = DriftChecker()
@@ -155,8 +155,9 @@ async def get_run_drift_warnings(
         raise HTTPException(status_code=404, detail="run not found")
 
     all_warnings = await list_warnings(session, run_id)
-    drift_warnings = [w for w in all_warnings if w.warning_type.endswith("_drift")]
-
+    _drift_types = {kind.value for kind in DriftKind}
+    drift_warnings = [w for w in all_warnings if w.warning_type in _drift_types]
+    
     return {
         "run_id": run_id,
         "drift_warning_count": len(drift_warnings),
