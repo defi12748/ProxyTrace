@@ -2,75 +2,97 @@
 
 # ProxyTrace
 
-Side-effect-safe execution tracing and deterministic replay for enterprise AI agents.
+Execution tracing, deterministic replay, and regression capture for enterprise AI agents.
 
-**AINS Hackathon 2026 · Use Case 2 · Agent Execution Tracer & Deterministic Replay Engine**
+**AINS Hackathon 2026 · Use Case 2 · Agent Execution Tracer and Deterministic Replay Engine**
 
 </div>
 
 ---
 
-ProxyTrace is the flight recorder for Jira AI agents. It records every LLM decision and tool call, replays incidents without touching live Jira, blocks side effects during replay, and turns failures into inspectable evidence.
+## Overview
 
-Core loop:
+ProxyTrace is a debugging and evaluation layer for tool-using AI agents in enterprise workflows. The prototype records an agent run as a structured trace, stores LLM and tool-call snapshots, replays the run without making live external calls, blocks side-effecting tools during replay, and allows a developer to patch a step to inspect how the trajectory changes.
 
-```text
-record -> replay -> patch -> diff -> explain -> regress
-```
+The current implementation targets a Jira triage agent with two tools:
 
-## Why This Wins
+- `get_project_key` — read-only classification/lookup tool
+- `update_ticket` — write tool that changes ticket routing state
 
-When a traditional system fails, engineers reproduce the bug. When an AI agent fails, rerunning it may produce a different trajectory or trigger the same live side effect again. ProxyTrace closes that infrastructure gap:
+The project is a work in progress. The backend foundation and Phase 2 replay/evaluation path are implemented and verified against Neon PostgreSQL. Render deployment, Forge UI integration, and real Jira workspace execution are still pending.
 
-- full trajectory capture: LLM prompts, model responses, tool calls, payloads, latency, status, and context snapshots;
-- deterministic strict replay: recorded LLM and tool responses are served from the trace store, with zero live calls;
-- side-effect firewall: write and destructive tools are blocked during replay and logged as warnings;
-- tool contract registry: every tool has a replay policy, schema hash, trust level, and side-effect class;
-- evaluation-ready data: the 20-trace label set is already present in `proxytrace/data/labels.json`.
+## Problem
 
-This maps directly to the AINS Use Case 2 must-have criteria: record functionality, deterministic replay, state inspection, and a foundation for divergence editing.
+Traditional debugging assumes that a failure can be reproduced. AI agents break that assumption: rerunning the same task can produce different model outputs, different tool calls, or repeated side effects.
 
-## Phase 1 Status
+In an enterprise setting, that creates three practical problems:
 
-Built now:
+- an engineer may not know which step caused a failed Jira action;
+- rerunning the agent can modify live systems again;
+- incidents are difficult to turn into regression tests.
 
-- FastAPI backend at `proxytrace.proxy.main:app`
-- async SQLAlchemy trace store for Neon PostgreSQL
-- tables/models for `runs`, `steps`, `tool_contracts`, `replays`, `regression_pack`, and `drift_warnings`
+ProxyTrace addresses this by preserving the execution state of a run and replaying it from recorded snapshots instead of live services.
+
+## Current Status
+
+Implemented:
+
+- FastAPI backend with health, run, trace, replay, and regression endpoints
+- Neon PostgreSQL trace store via SQLAlchemy async and `asyncpg`
+- Gemini SDK capture path for `google.genai.Client.models.generate_content(...)`
 - MCP-style tool proxy endpoint at `POST /mcp`
-- LLM capture endpoint at `POST /llm/capture`
-- Gemini SDK monkey-patch for automatic `google.genai.Client.models.generate_content(...)` capture
-- demo Jira triage agent with two tools:
-  - `get_project_key` as a read tool
-  - `update_ticket` as a write tool
-- strict replay endpoint at `POST /runs/{run_id}/replay/strict`
-- sequence-based replay determinism metrics, including matching step count and mismatches
-- side-effect firewall that blocks `update_ticket` during strict replay
-- default contracts and schema hashes for the demo tools
-- Phase 4 evaluation labels drafted early, as required by the winning plan
+- tool contract registry with schema hashes and side-effect classification
+- strict replay with zero live tool calls
+- side-effect firewall for write/destructive tools
+- sequence-based determinism metrics
+- exploratory replay with prompt/tool-result patching
+- trajectory diff and semantic final-state diff
+- Gemini structured scorer with strict JSON validation and fallback handling
+- regression promotion and frozen assertion runner
+- 20 human labels for the planned evaluation set
 
-Planned next:
+Pending:
 
-- route-level hardening for regression endpoints
-- replay history endpoint if needed by the frontend
-- React/Forge UI
+- Render public deployment health check
+- Atlassian Forge issue panel
+- real Jira developer workspace tool execution
+- Alembic migrations
+- fuller route-level tests for regression endpoints
+- Phase 3 frontend
+- Phase 4 evaluation report
+
+## Acceptance Criteria Mapping
+
+| AINS Use Case 2 Criterion | Current Prototype Support |
+|---|---|
+| Record functionality | Implemented. Runs store LLM snapshots and tool-call payloads in Neon. |
+| Deterministic replay | Implemented. Strict replay serves recorded snapshots and reports determinism metrics. |
+| State inspection | Implemented through `GET /runs/{run_id}` and persisted `snapshot` JSON fields. |
+| Side-effect-safe debugging | Implemented. Write/destructive tools are blocked by the firewall during replay. |
+| Divergence editing | Implemented for prompt patches and tool-result patches. |
+| Human-readable verdict | Implemented at backend level through structured evaluator output. UI presentation is pending. |
+| Regression capture | Implemented as frozen trace assertions. Fresh-agent regression re-execution is pending. |
 
 ## Architecture
 
 ```mermaid
 graph LR
-    Agent["Demo / Enterprise Agent"] -->|"LLM snapshot"| LLM["LLM Adapter"]
+    Agent["Demo / Enterprise Agent"] -->|"LLM call"| LLM["Gemini Capture Adapter"]
     Agent -->|"tool call"| Proxy["Tool Proxy Gateway"]
     LLM --> Store[("Trace Store<br/>Neon PostgreSQL")]
     Proxy --> Contracts["Tool Contract Registry"]
     Contracts --> Firewall["Side-Effect Firewall"]
     Proxy --> Store
-    Store --> Replay["Strict Replay Engine"]
-    Firewall --> Replay
-    Replay --> Verdict["Replay Verdict<br/>determinism, blocked writes, zero live calls"]
+    Store --> Strict["Strict Replay"]
+    Store --> Explore["Exploratory Replay"]
+    Explore --> Diff["Trajectory + Outcome Diff"]
+    Diff --> Scorer["Gemini Structured Scorer"]
+    Scorer --> Regression["Regression Pack"]
 ```
 
-Live recording:
+## Core Workflows
+
+### Live Recording
 
 ```mermaid
 sequenceDiagram
@@ -83,18 +105,18 @@ sequenceDiagram
     Agent->>API: POST /runs
     API->>Store: create run
     Agent->>API: POST /llm/capture
-    API->>Store: store prompt, messages, response, prompt hash
+    API->>Store: store prompt, messages, model response, prompt hash
     Agent->>API: POST /mcp get_project_key
-    API->>Store: store tool params + contract hash
+    API->>Store: store tool params and contract metadata
     API->>Tool: execute read tool
     Tool-->>API: project key response
-    API->>Store: store response + latency
+    API->>Store: store response, status, latency
     Agent->>API: POST /mcp update_ticket
     API->>Tool: execute write tool during live recording
-    API->>Store: store write response and side-effect class
+    API->>Store: store response and side-effect classification
 ```
 
-Strict replay:
+### Strict Replay
 
 ```mermaid
 sequenceDiagram
@@ -110,31 +132,69 @@ sequenceDiagram
     Replay->>Firewall: inspect update_ticket contract
     Firewall-->>Replay: blocked: side_effect_blocked
     Replay->>Store: log side_effect_blocked warning
-    Replay-->>User: determinism_rate=1.0, live_call_count=0
+    Replay-->>User: determinism_rate, live_call_count, replayed_steps
 ```
 
-## Quick Start
+### Exploratory Replay
 
-Set `DATABASE_URL` to the Neon pooled PostgreSQL connection string with `sslmode=require`.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User
+    participant Replay as Exploratory Replay
+    participant Patch as Patch Engine
+    participant Diff as Divergence Diff
+    participant Scorer as Gemini Scorer
+    participant Store as Trace Store
+
+    User->>Replay: patch step and run exploratory replay
+    Replay->>Patch: apply prompt or tool-result patch
+    Patch-->>Replay: patched trajectory
+    Replay->>Diff: compare original vs patched trajectory
+    Diff-->>Replay: trajectory and final-state diff
+    Replay->>Scorer: request structured explanation
+    Scorer-->>Replay: root cause, affected steps, confidence
+    Replay->>Store: persist exploratory replay verdict
+```
+
+## Setup
+
+1. Create a `.env` file from the template.
+
+```powershell
+Copy-Item .env.example .env
+```
+
+2. Set required environment variables.
+
+```text
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/proxytrace?sslmode=require
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-3.1-flash-lite
+```
+
+3. Install dependencies and initialize the database.
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
-Copy-Item .env.example .env
-# edit .env and paste the Neon pooled DATABASE_URL
 python -m proxytrace.db.init_db
+```
+
+4. Run the backend.
+
+```powershell
 uvicorn proxytrace.proxy.main:app --reload
 ```
 
-In a second terminal, record a demo trace:
+5. Record a demo trace.
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
 python -m proxytrace.agent_demo.run_demo --issue-key DEMO-1 --summary "API deploy pipeline fails" --description "The platform release pipeline fails after an API change."
 ```
 
-Copy the `run_id` from the output and run strict replay:
+6. Run strict replay.
 
 ```powershell
 $runId = "<run_id>"
@@ -143,23 +203,10 @@ Invoke-RestMethod -Method Post "http://localhost:8000/runs/$runId/replay/strict"
 
 Expected replay properties:
 
-- `determinism_rate` is `1.0`
 - `live_call_count` is `0`
-- `update_ticket` is marked `side_effect_blocked`
-- a `side_effect_blocked` warning is written for the replayed write tool
-
-## Neon + Render + Forge Path
-
-Day 0 / production-like setup from the winning plan:
-
-1. Create a Neon project named `proxytrace`.
-2. Use the pooled PostgreSQL connection string as `DATABASE_URL`.
-3. Deploy the FastAPI backend on Render so Atlassian Forge can reach it.
-4. Set `GEMINI_API_KEY` and `GEMINI_MODEL=gemini-3.1-flash-lite`.
-5. Hit `GET /health` on the Render URL.
-6. Use the Render URL as the Forge Remote backend base URL.
-
-The judging/demo target is Neon PostgreSQL + Render FastAPI backend + Forge.
+- write tools are marked `side_effect_blocked`
+- `determinism_rate` reflects recorded-vs-replayed step sequence matching
+- side-effect warnings are written to `drift_warnings`
 
 ## API Surface
 
@@ -167,40 +214,30 @@ The judging/demo target is Neon PostgreSQL + Render FastAPI backend + Forge.
 |---|---|
 | `GET /health` | service health check |
 | `POST /runs` | start an agent run |
-| `GET /runs` | list recorded runs, optionally filtered by Jira issue key |
-| `GET /runs/{run_id}` | inspect run metadata and all steps |
+| `GET /runs` | list recorded runs |
+| `GET /runs/{run_id}` | inspect run metadata and steps |
 | `GET /runs/{run_id}/warnings` | inspect firewall and drift warnings |
 | `POST /llm/capture` | record an LLM prompt/response snapshot |
 | `POST /mcp` | proxy and record a tool call |
 | `POST /runs/{run_id}/complete` | mark a run completed or failed |
-| `POST /runs/{run_id}/replay/strict` | replay from recorded snapshots with the firewall enabled |
-| `POST /runs/{run_id}/replay/exploratory` | apply a prompt/tool-result patch and compare the branched trajectory |
-| `POST /replay/exploratory` | same exploratory replay flow with `run_id` in the JSON body |
+| `POST /runs/{run_id}/replay/strict` | replay from recorded snapshots |
+| `POST /runs/{run_id}/replay/exploratory` | apply a patch and compare the branched trajectory |
+| `POST /replay/exploratory` | exploratory replay with `run_id` in the request body |
 | `POST /regression/promote` | freeze an exploratory replay into regression assertions |
 | `GET /regression` | list promoted regression tests |
 | `POST /regression/run-all` | run frozen regression assertions |
 
-Current regression limitation: `run-all` validates frozen trace consistency and final-state assertions without re-executing a fresh live agent run. True production regression testing will replay a new agent version and compare it against the frozen assertions.
+## Known Limitations
 
-## Repository Structure
+- The current regression runner validates frozen trace consistency and final-state assertions. It does not yet re-execute a fresh agent version against the frozen assertions.
+- The database schema is created with `create_all` for the prototype. Alembic migrations are planned.
+- The demo tools currently use local handlers. Real Atlassian/Jira tool execution is pending.
+- The Forge issue panel and React frontend are not implemented yet.
+- Render deployment configuration exists, but the public deployment still needs to be performed and verified.
 
-```text
-proxytrace/
-  agent_demo/       demo Jira triage agent and runner
-  contracts/        schema hashing and default tool contract registry
-  db/               SQLAlchemy models, sessions, repository helpers, init script
-  llm_adapter/      LLM prompt/response capture helpers
-  proxy/            FastAPI app, routes, MCP-style tool proxy, demo tools
-  replay/           strict replay engine and side-effect firewall
-  data/
-    labels.json     20 human labels for evaluator ground truth
-tests/
-  test_*.py         initial contract/firewall tests
-```
+## Evaluation Plan
 
-## Evaluation Labels
-
-`proxytrace/data/labels.json` contains the planned 20-trace evaluation set:
+The planned evaluation set is stored in `proxytrace/data/labels.json` and contains 20 labeled traces:
 
 - 5 clean runs
 - 4 wrong tool argument failures
@@ -209,18 +246,44 @@ tests/
 - 2 wrong tool order failures
 - 2 schema drift warnings
 
-These labels are written before scorer implementation to avoid tuning the evaluator to its own output.
+Planned metrics:
 
-## Hackathon Roadmap
+- replay determinism rate
+- side-effect blocking rate
+- divergence localization accuracy
+- judge agreement rate
+- end-state equivalence
+- regression pass rate
 
-Phase 1, Days 1-2: record, strict replay, side-effect firewall.
+## Repository Structure
 
-Phase 2, Days 3-4: patch engine, exploratory replay, divergence diff, hybrid evaluator, regression pack.
+```text
+proxytrace/
+  agent_demo/          demo Jira triage agent and runner
+  contracts/           tool contract registry and schema hashing
+  data/                evaluation labels and later seed data
+  db/                  SQLAlchemy models, sessions, repository helpers
+  evaluator/           divergence diff, Gemini scorer, hybrid evaluator
+  llm_adapter/         LLM capture helpers and Gemini SDK patch
+  patch/               patch engine
+  proxy/               FastAPI app, routes, MCP-style proxy
+  regression_pack/     regression promotion and assertion runner
+  replay/              strict and exploratory replay engines
+tests/
+  test_*.py            focused backend tests
+render.yaml            Render web service configuration
+```
 
-Phase 3, Days 5-6: React/Vite frontend and Forge issue panel integration.
+## Roadmap
 
-Phase 4, Day 7: 20-trace evaluation run, metrics report, demo video, final submission polish.
+1. Complete public Render deployment and health check.
+2. Connect a real Atlassian developer workspace.
+3. Build the React/Forge issue-panel interface.
+4. Generate the 20-trace synthetic evaluation set.
+5. Run and publish the evaluation report.
+6. Add Alembic migrations and production deployment hardening.
 
 ---
 
-Built for AINS Hackathon 2026, Use Case 2, with Vectors as the commercial target.
+Built for AINS Hackathon 2026, Use Case 2.
+
