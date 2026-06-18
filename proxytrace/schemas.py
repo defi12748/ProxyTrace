@@ -66,3 +66,7 @@ class RegressionPromoteRequest(BaseModel):
 
 class JiraTraceRequest(BaseModel):
     issue_key: str
+
+
+class RegressionRunAllRequest(BaseModel):
+    candidate_traces: dict[str, list[JsonObject]] = Field(default_factory=dict)
