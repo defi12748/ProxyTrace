@@ -12,7 +12,7 @@ We are aligned with the docx direction and Phase 1 architecture, but we are not 
 
 ## Completion Estimate
 
-Overall docx plan: about 30% complete.
+Overall docx plan: about 38% complete.
 
 Phase 1 foundation code: about 78% complete.
 
@@ -22,7 +22,7 @@ Breakdown:
 
 - Day 0 infrastructure: about 45%; Neon schema init is verified, Render config exists, but Render deploy and Forge spike are not connected yet.
 - Phase 1 recording/proxy/replay/firewall: about 78%; core backend modules exist, 5 Neon-backed demo traces replayed, and Gemini SDK capture was verified, but real Atlassian verification is still missing.
-- Phase 2 patch/diff/evaluator/regression: about 40%; patch engine, exploratory replay, divergence diff, and deterministic evaluator exist. Gemini structured scorer and regression promotion are still pending.
+- Phase 2 patch/diff/evaluator/regression: about 90%; patch engine, exploratory replay, divergence diff, Gemini structured scorer, hybrid evaluator, regression promotion, and run-all exist. Remaining work is hardening and broader route-level tests.
 - Phase 3 frontend/Forge UI: 0%; not started.
 - Phase 4 evaluation/polish: about 10%; labels exist, but trace generation and metrics are not implemented.
 
@@ -148,6 +148,42 @@ What is not fully proven yet:
   - risk level returned as `high`
 - Added tests for patch propagation, divergence diff, and deterministic evaluator.
 
+### 2026-06-18 Phase 2 Completion Pass
+
+- Added `proxytrace/evaluator/ai_scorer.py`.
+- Implemented Gemini structured scorer:
+  - one Gemini call per exploratory replay
+  - `response_mime_type=application/json`
+  - strict Pydantic validation
+  - fallback verdict with `judge_confidence=0.0` and `human_review_required=true` on malformed output or scorer failure
+- Wired Gemini scorer into `HybridEvaluator` after deterministic checks.
+- Removed the hardcoded confidence behavior from the evaluator path.
+- Added regression pack modules:
+  - `proxytrace/regression_pack/pack_store.py`
+  - `proxytrace/regression_pack/runner.py`
+- Added regression API endpoints:
+  - `POST /regression/promote`
+  - `GET /regression`
+  - `POST /regression/run-all`
+- Regression promotion freezes:
+  - patched trace
+  - expected tool sequence
+  - expected final state
+  - expected final board
+  - evaluation verdict
+- Regression run-all checks frozen assertions without touching live tools.
+- Verified full Phase 2 path through FastAPI against Neon:
+  - exploratory replay ID: `36121572-11b5-4614-b1c5-8b4cb35bfc27`
+  - scorer source: `gemini_structured_scorer`
+  - judge confidence: `0.95`
+  - human review required: `false`
+  - promoted regression test ID: `9da664cd-c8de-460d-9687-92e81669e312`
+  - expected final board: `PLATFORM`
+  - regression run total: `1`
+  - regression passed: `1`
+  - regression failed: `0`
+- Added tests for Gemini scorer valid JSON, Gemini scorer fallback, regression promotion assertions, and regression assertion runner.
+
 ## Current Files That Matter
 
 - `README.md` - judge-facing project explanation and setup path.
@@ -163,6 +199,9 @@ What is not fully proven yet:
 - `proxytrace/patch/patch_engine.py` - prompt and tool-result patch application.
 - `proxytrace/evaluator/divergence_diff.py` - trajectory and semantic final-state diff.
 - `proxytrace/evaluator/hybrid_evaluator.py` - deterministic evaluator verdicts.
+- `proxytrace/evaluator/ai_scorer.py` - Gemini structured scorer with strict validation and fallback.
+- `proxytrace/regression_pack/pack_store.py` - regression promotion assertion builder.
+- `proxytrace/regression_pack/runner.py` - regression assertion runner.
 - `proxytrace/replay/firewall.py` - side-effect firewall.
 - `proxytrace/contracts/registry.py` - default tool contracts.
 - `proxytrace/db/models.py` - Neon/PostgreSQL table models.
@@ -194,12 +233,10 @@ What is not fully proven yet:
 
 ### Phase 2
 
-1. Add Gemini structured scorer with strict JSON validation.
-2. Wire Gemini scorer into the hybrid evaluator after deterministic checks.
-3. Add low-confidence human review handling from scorer output.
-4. Add regression promotion endpoint.
-5. Add regression runner skeleton.
-6. Add API/tests for replay lookup and regression pack inspection.
+1. Add route-level tests for regression endpoints.
+2. Add replay lookup endpoints if the frontend needs direct replay history.
+3. Add deeper malformed-scorer fixtures and low-confidence demo trace.
+4. Harden regression run-all to support future live patched-agent reruns, not only frozen assertion checks.
 
 ### Phase 3
 

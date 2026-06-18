@@ -50,7 +50,7 @@ class ExploratoryReplayEngine:
             steps,
             patch_result["patched_steps"],
         )
-        evaluator_verdict = self.evaluator.evaluate(
+        evaluator_verdict = await self.evaluator.evaluate(
             patch_step=patch_step,
             patch_payload=patch_payload,
             diff=diff,

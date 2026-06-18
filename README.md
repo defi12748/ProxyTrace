@@ -51,8 +51,8 @@ Built now:
 
 Planned next:
 
-- Gemini structured scorer
-- regression promotion endpoint
+- route-level hardening for regression endpoints
+- replay history endpoint if needed by the frontend
 - React/Forge UI
 
 ## Architecture
@@ -176,6 +176,9 @@ The judging/demo target is Neon PostgreSQL + Render FastAPI backend + Forge.
 | `POST /runs/{run_id}/replay/strict` | replay from recorded snapshots with the firewall enabled |
 | `POST /runs/{run_id}/replay/exploratory` | apply a prompt/tool-result patch and compare the branched trajectory |
 | `POST /replay/exploratory` | same exploratory replay flow with `run_id` in the JSON body |
+| `POST /regression/promote` | freeze an exploratory replay into regression assertions |
+| `GET /regression` | list promoted regression tests |
+| `POST /regression/run-all` | run frozen regression assertions |
 
 ## Repository Structure
 

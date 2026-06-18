@@ -1,10 +1,38 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
+
+from proxytrace.evaluator.ai_scorer import GeminiScorer
 
 
 class HybridEvaluator:
-    def evaluate(
+    def __init__(self, scorer: GeminiScorer | None = None) -> None:
+        self.scorer = scorer or GeminiScorer()
+
+    async def evaluate(
+        self,
+        *,
+        patch_step: int,
+        patch_payload: dict[str, Any],
+        diff: dict[str, Any],
+    ) -> dict[str, Any]:
+        deterministic_verdict = self.deterministic_verdict(
+            patch_step=patch_step,
+            patch_payload=patch_payload,
+            diff=diff,
+        )
+        scorer_verdict = await asyncio.to_thread(
+            self.scorer.score,
+            patch_step=patch_step,
+            patch_payload=patch_payload,
+            diff=diff,
+            deterministic_verdict=deterministic_verdict,
+        )
+        scorer_verdict["deterministic_verdict"] = deterministic_verdict
+        return scorer_verdict
+
+    def deterministic_verdict(
         self,
         *,
         patch_step: int,
@@ -31,8 +59,6 @@ class HybridEvaluator:
             "affected_steps": affected_steps,
             "risk_level": risk_level,
             "recommendation": self._recommendation(patch_type, changed),
-            "judge_confidence": 0.72 if changed else 0.61,
-            "human_review_required": (0.72 if changed else 0.61) < 0.7,
             "source": "deterministic_hybrid_evaluator",
         }
 

@@ -58,3 +58,7 @@ class ExploratoryReplayRequest(BaseModel):
 class ExploratoryReplayForRunRequest(BaseModel):
     patch_step: int = Field(ge=1)
     patch: PatchPayload
+
+
+class RegressionPromoteRequest(BaseModel):
+    replay_id: str

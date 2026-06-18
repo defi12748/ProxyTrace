@@ -6,7 +6,14 @@ from typing import Any
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from proxytrace.db.models import DriftWarning, Run, Step, ToolContract
+from proxytrace.db.models import (
+    DriftWarning,
+    RegressionPackItem,
+    Replay,
+    Run,
+    Step,
+    ToolContract,
+)
 
 
 def run_to_dict(run: Run) -> dict[str, Any]:
@@ -61,6 +68,18 @@ def warning_to_dict(warning: DriftWarning) -> dict[str, Any]:
         if warning.surfaced_at
         else None,
         "details": warning.details,
+    }
+
+
+def replay_to_dict(replay: Replay) -> dict[str, Any]:
+    return {
+        "replay_id": replay.replay_id,
+        "run_id": replay.run_id,
+        "mode": replay.mode,
+        "patch_step": replay.patch_step,
+        "patch_payload": replay.patch_payload or {},
+        "verdict": replay.verdict or {},
+        "created_at": replay.created_at.isoformat() if replay.created_at else None,
     }
 
 
@@ -169,6 +188,23 @@ async def list_warnings(session: AsyncSession, run_id: str) -> list[DriftWarning
         select(DriftWarning)
         .where(DriftWarning.run_id == run_id)
         .order_by(desc(DriftWarning.surfaced_at))
+    )
+    return list(result.scalars().all())
+
+
+async def get_replay(session: AsyncSession, replay_id: str) -> Replay | None:
+    return await session.get(Replay, replay_id)
+
+
+async def list_regression_items(
+    session: AsyncSession,
+    *,
+    limit: int = 100,
+) -> list[RegressionPackItem]:
+    result = await session.execute(
+        select(RegressionPackItem)
+        .order_by(desc(RegressionPackItem.promoted_at))
+        .limit(limit)
     )
     return list(result.scalars().all())
 

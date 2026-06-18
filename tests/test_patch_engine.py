@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from proxytrace.evaluator.divergence_diff import DivergenceDiff
+from proxytrace.evaluator.ai_scorer import GeminiScorer
 from proxytrace.evaluator.hybrid_evaluator import HybridEvaluator
 from proxytrace.patch.patch_engine import PatchEngine
 
@@ -84,7 +85,7 @@ def test_divergence_diff_reports_final_state_change() -> None:
     assert diff["semantic_outcome_diff"]["patched_final_state"]["board"] == "PLATFORM"
 
 
-def test_hybrid_evaluator_returns_structured_verdict() -> None:
+async def test_hybrid_evaluator_returns_structured_fallback_verdict() -> None:
     steps = sample_steps()
     patch_payload = {
         "patch_type": "tool_result_patch",
@@ -97,7 +98,7 @@ def test_hybrid_evaluator_returns_structured_verdict() -> None:
     )
     diff = DivergenceDiff().compare(steps, patch_result["patched_steps"])
 
-    verdict = HybridEvaluator().evaluate(
+    verdict = await HybridEvaluator(scorer=GeminiScorer(enabled=False)).evaluate(
         patch_step=2,
         patch_payload=patch_payload,
         diff=diff,
@@ -107,5 +108,6 @@ def test_hybrid_evaluator_returns_structured_verdict() -> None:
     assert verdict["divergence_type"] == "wrong_argument"
     assert verdict["affected_steps"] == [4]
     assert verdict["risk_level"] == "high"
-    assert verdict["judge_confidence"] >= 0.7
-
+    assert verdict["judge_confidence"] == 0.0
+    assert verdict["human_review_required"] is True
+    assert verdict["source"] == "gemini_scorer_fallback"
