@@ -7,13 +7,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from proxytrace.contracts.registry import ensure_default_contracts
-from proxytrace.db.session import SessionLocal, init_models
+from proxytrace.db.session import SessionLocal
 from proxytrace.proxy.routes import drift, health, jira, llm, mcp, regression, replay, runs
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    await init_models()
     async with SessionLocal() as session:
         await ensure_default_contracts(session)
         await session.commit()
