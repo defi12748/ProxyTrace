@@ -1,0 +1,114 @@
+/* ============================================================
+   ProxyTrace v2 — Base & Global Styles
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* --- Scrollbars --- */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* --- Selection --- */
+::selection { background: rgba(99,179,237,0.25); color: var(--text-primary); }
+
+/* --- Links --- */
+a { color: var(--cyan); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* --- Focus visible --- */
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* --- Headings --- */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
+/* --- Code / mono --- */
+code, pre, .mono {
+  font-family: var(--font-mono);
+}
+
+/* --- Divider --- */
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+/* --- App layout shell --- */
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-content {
+  flex: 1;
+  min-width: 0;
+  margin-left: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+}
+
+.page-body {
+  flex: 1;
+  padding: var(--space-6);
+  max-width: 1600px;
+  width: 100%;
+  margin: 0 auto;
+  animation: fadeIn 200ms ease forwards;
+}
+
+/* --- Section labels --- */
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* --- Truncate --- */
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- ReactFlow overrides for dark theme --- */
+.react-flow__background { background: var(--bg-raised); }
+.react-flow__controls { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.react-flow__controls button {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  min-height: 28px;
+}
+.react-flow__controls button:hover { background: var(--bg-overlay); color: var(--text-primary); }
+.react-flow__minimap { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); }

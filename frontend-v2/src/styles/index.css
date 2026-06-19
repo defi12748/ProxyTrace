@@ -1,0 +1,9 @@
+/* ============================================================
+   ProxyTrace v2 — Styles entry point
+   ============================================================ */
+@import "./tokens.css";
+@import "./animations.css";
+@import "./base.css";
+
+/* XY Flow */
+@import "@xyflow/react/dist/style.css";
