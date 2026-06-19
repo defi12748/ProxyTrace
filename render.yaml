@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     autoDeployTrigger: commit
-    buildCommand: pip install -e . && alembic upgrade head
+    buildCommand: pip install -e . && alembic upgrade head && cd frontend && npm install && npm run build && cd ..
     startCommand: uvicorn proxytrace.proxy.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:

@@ -37,7 +37,8 @@ import {
 } from "./api";
 
 const DEFAULT_API_BASE =
-  import.meta.env.VITE_PROXYTRACE_API_URL || "http://127.0.0.1:8000";
+  import.meta.env.VITE_PROXYTRACE_API_URL ||
+  (import.meta.env.DEV ? "http://127.0.0.1:8000" : "");
 
 const ROUTE_OPTIONS = [
   { value: "PLATFORM", label: "Platform" },
@@ -48,6 +49,7 @@ const ROUTE_OPTIONS = [
 
 function getInitialApiBase(): string {
   const saved = localStorage.getItem("proxytrace_api_base") || DEFAULT_API_BASE;
+  if (saved === "") return "";
   const legacyHost = ["local", "host"].join("");
   try {
     const parsed = new URL(saved);
