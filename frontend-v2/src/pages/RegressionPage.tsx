@@ -1,0 +1,294 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  BadgeCheck,
+  CheckCircle2,
+  PlayCircle,
+  RefreshCw,
+  TestTube2,
+  XCircle,
+} from "lucide-react";
+import { PageShell } from "../components/layout/PageShell";
+import { Button } from "../components/ui/Button";
+import { Card, CardHeader, CardBody } from "../components/ui/Card";
+import { EmptyState } from "../components/ui/EmptyState";
+import { CodeBlock } from "../components/ui/CodeBlock";
+import { showToast } from "../components/ui/Toast";
+import { ProxyTraceApi, getInitialApiBase, formatDate, compactId } from "../api/client";
+import type { RegressionItem, RegressionRunResult } from "../api/types";
+
+export function RegressionPage() {
+  const [apiBase] = useState(getInitialApiBase);
+  const api = useMemo(() => new ProxyTraceApi(apiBase), [apiBase]);
+
+  const [regressions, setRegressions] = useState<RegressionItem[]>([]);
+  const [runResult, setRunResult] = useState<RegressionRunResult | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setBusy("load");
+    try {
+      const res = await api.get<{ regressions: RegressionItem[] }>("/regression?limit=50");
+      setRegressions(res.regressions);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Load failed", "error");
+    } finally {
+      setBusy(null);
+    }
+  }, [api]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function runAll() {
+    setBusy("run");
+    try {
+      const res = await api.post<RegressionRunResult>("/regression/run-all");
+      setRunResult(res);
+      showToast(`${res.passed}/${res.total} tests passed`, res.failed === 0 ? "success" : "error");
+      await load();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Run failed", "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const totalPass = regressions.filter((r) => r.pass_count > 0 && r.fail_count === 0).length;
+  const totalFail = regressions.filter((r) => r.fail_count > 0).length;
+  const passRate = regressions.length > 0 ? Math.round((totalPass / regressions.length) * 100) : null;
+
+  return (
+    <PageShell
+      title="Regression Suite"
+      subtitle="Frozen assertion tests for your AI agent — the CI layer for determinism"
+      actions={
+        <div style={{ display: "flex", gap: "8px" }}>
+          <Button
+            variant="ghost"
+            icon={<RefreshCw size={14} />}
+            loading={busy === "load"}
+            onClick={() => void load()}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="primary"
+            icon={<PlayCircle size={14} />}
+            loading={busy === "run"}
+            onClick={() => void runAll()}
+            disabled={regressions.length === 0}
+          >
+            {busy === "run" ? "Running tests…" : "Run All Tests"}
+          </Button>
+        </div>
+      }
+    >
+      {/* Stats bar */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px" }}>
+        {[
+          { label: "Total Tests", value: regressions.length, color: "var(--text-primary)" },
+          { label: "Passing", value: totalPass, color: "var(--emerald)" },
+          { label: "Failing", value: totalFail, color: totalFail > 0 ? "var(--rose)" : "var(--text-muted)" },
+          { label: "Pass Rate", value: passRate !== null ? `${passRate}%` : "—", color: passRate !== null && passRate >= 80 ? "var(--emerald)" : "var(--amber)" },
+        ].map(({ label, value, color }) => (
+          <div
+            key={label}
+            style={{
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-lg)",
+              padding: "14px 16px",
+            }}
+          >
+            <div style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: "6px" }}>
+              {label}
+            </div>
+            <div style={{ fontSize: "26px", fontWeight: 700, color }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Run result banner */}
+      {runResult && (
+        <div
+          style={{
+            padding: "14px 18px",
+            borderRadius: "var(--radius-lg)",
+            border: `1px solid ${runResult.failed === 0 ? "rgba(52,211,153,0.35)" : "rgba(248,113,113,0.35)"}`,
+            background: runResult.failed === 0 ? "rgba(52,211,153,0.08)" : "rgba(248,113,113,0.08)",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            animation: "scaleIn 200ms ease forwards",
+          }}
+        >
+          {runResult.failed === 0 ? (
+            <CheckCircle2 size={20} style={{ color: "var(--emerald)", flexShrink: 0 }} />
+          ) : (
+            <XCircle size={20} style={{ color: "var(--rose)", flexShrink: 0 }} />
+          )}
+          <div>
+            <div style={{ fontSize: "14px", fontWeight: 700, color: runResult.failed === 0 ? "var(--emerald)" : "var(--rose)" }}>
+              {runResult.failed === 0 ? "All tests passed" : `${runResult.failed} test${runResult.failed !== 1 ? "s" : ""} failed`}
+            </div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+              {runResult.passed}/{runResult.total} assertions satisfied
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ flex: 1, height: "6px", background: "var(--bg-raised)", borderRadius: "var(--radius-full)", overflow: "hidden", marginLeft: "auto" }}>
+            <div
+              style={{
+                height: "100%",
+                width: `${(runResult.passed / Math.max(runResult.total, 1)) * 100}%`,
+                background: runResult.failed === 0 ? "var(--emerald)" : "var(--amber)",
+                borderRadius: "var(--radius-full)",
+                transition: "width 600ms ease",
+              }}
+            />
+          </div>
+          <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", flexShrink: 0 }}>
+            {runResult.passed}/{runResult.total}
+          </span>
+        </div>
+      )}
+
+      {/* Regression table */}
+      <Card>
+        <CardHeader>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <TestTube2 size={15} style={{ color: "var(--violet)" }} />
+            <span style={{ fontSize: "14px", fontWeight: 600 }}>Test Pack</span>
+          </div>
+          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+            {regressions.length} test{regressions.length !== 1 ? "s" : ""}
+          </span>
+        </CardHeader>
+
+        {regressions.length === 0 && busy !== "load" ? (
+          <CardBody>
+            <EmptyState
+              icon={<BadgeCheck size={22} />}
+              title="No regression tests"
+              description="Run a what-if simulation from a trace, then promote it as a regression test."
+            />
+          </CardBody>
+        ) : (
+          <div>
+            {/* Table header */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "130px 130px 130px 80px 80px 1fr 120px",
+                gap: "8px",
+                padding: "8px 16px",
+                borderBottom: "1px solid var(--border)",
+                fontSize: "10px",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.07em",
+                color: "var(--text-muted)",
+              }}
+            >
+              <span>Test ID</span>
+              <span>Run</span>
+              <span>Replay</span>
+              <span>Passed</span>
+              <span>Failed</span>
+              <span>Promoted</span>
+              <span>Last Run</span>
+            </div>
+
+            {regressions.map((reg) => {
+              const expanded = expandedId === reg.test_id;
+              const hasFailures = reg.fail_count > 0;
+              return (
+                <div key={reg.test_id}>
+                  <button
+                    id={`regression-row-${reg.test_id}`}
+                    onClick={() => setExpandedId(expanded ? null : reg.test_id)}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "130px 130px 130px 80px 80px 1fr 120px",
+                      gap: "8px",
+                      padding: "11px 16px",
+                      width: "100%",
+                      textAlign: "left",
+                      borderBottom: "1px solid var(--border)",
+                      background: expanded ? "var(--bg-overlay)" : "transparent",
+                      cursor: "pointer",
+                      transition: "background var(--transition)",
+                      alignItems: "center",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!expanded) e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!expanded) e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
+                      {compactId(reg.test_id)}
+                    </span>
+                    <Link
+                      to={`/traces/${reg.run_id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--cyan)", textDecoration: "none" }}
+                    >
+                      {compactId(reg.run_id)}
+                    </Link>
+                    <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
+                      {reg.replay_id ? compactId(reg.replay_id) : "—"}
+                    </span>
+
+                    {/* Pass count */}
+                    <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <CheckCircle2 size={12} style={{ color: "var(--emerald)" }} />
+                      <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--emerald)" }}>
+                        {reg.pass_count}
+                      </span>
+                    </span>
+
+                    {/* Fail count */}
+                    <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      {hasFailures && <XCircle size={12} style={{ color: "var(--rose)" }} />}
+                      <span style={{ fontSize: "13px", fontWeight: 700, color: hasFailures ? "var(--rose)" : "var(--text-muted)" }}>
+                        {reg.fail_count}
+                      </span>
+                    </span>
+
+                    <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                      {formatDate(reg.promoted_at)}
+                    </span>
+                    <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                      {formatDate(reg.last_run_at)}
+                    </span>
+                  </button>
+
+                  {/* Expanded assertions */}
+                  {expanded && (
+                    <div
+                      style={{
+                        padding: "14px 16px",
+                        background: "var(--bg-overlay)",
+                        borderBottom: "1px solid var(--border)",
+                        animation: "fadeIn 150ms ease forwards",
+                      }}
+                    >
+                      <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: "8px" }}>
+                        Frozen Assertions
+                      </div>
+                      <CodeBlock value={reg.assertions} collapsed={false} maxHeight="200px" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </PageShell>
+  );
+}
