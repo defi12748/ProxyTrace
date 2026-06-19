@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     autoDeployTrigger: commit
-    buildCommand: pip install -e . && alembic upgrade head && cd frontend && npm install && npm run build && cd ..
+    buildCommand: pip install -e . && npm --prefix frontend ci && npm --prefix frontend run build && alembic upgrade head
     startCommand: uvicorn proxytrace.proxy.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
@@ -16,6 +16,8 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-3.1-flash-lite
+      - key: NODE_VERSION
+        value: 22.16.0
       - key: REDACTION_ENABLED
         value: "true"
       - key: DEMO_TOOL_MODE
