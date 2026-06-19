@@ -37,6 +37,12 @@ import {
 } from "./api";
 import { view } from "@forge/bridge";
 
+type StepStory = {
+  title: string;
+  why: string;
+  facts: Array<[string, unknown]>;
+};
+
 const DEFAULT_API_BASE =
   import.meta.env.VITE_PROXYTRACE_API_URL ||
   (import.meta.env.DEV
@@ -69,9 +75,12 @@ function getInitialApiBase(): string {
 function stepName(step: Step | JsonObject): string {
   const payload = asRecord(step.payload);
   if (step.step_type === "tool") {
-    return String(payload.tool_name ?? "tool_call");
+    const toolName = String(payload.tool_name ?? "tool_call");
+    if (toolName === "get_project_key") return "Check routing target";
+    if (toolName === "update_ticket") return "Record ticket update";
+    return toolName;
   }
-  return String(payload.model ?? "llm_snapshot");
+  return "Agent reasoning";
 }
 
 function stepSubtitle(step: Step | JsonObject): string {
@@ -79,15 +88,110 @@ function stepSubtitle(step: Step | JsonObject): string {
   if (step.step_type === "tool") {
     const params = asRecord(payload.params);
     const response = asRecord(payload.response);
-    return String(
-      params.board ??
-        response.board ??
-        response.project_key ??
-        payload.status ??
-        "recorded"
-    );
+    const route = params.board ?? response.board ?? response.project_key;
+    const status = response.status ?? payload.status ?? "recorded";
+    return route ? `Route: ${route}` : `Status: ${status}`;
   }
-  return String(payload.prompt_hash ?? payload.status ?? "captured");
+  const text = extractResponseText(payload);
+  if (text) return truncateText(text, 96);
+  return `Model: ${payload.model ?? "recorded"}`;
+}
+
+function extractResponseText(payload: JsonObject): string {
+  const response = asRecord(payload.response);
+  const candidates = response.candidates;
+  if (!Array.isArray(candidates)) return "";
+  for (const candidate of candidates) {
+    const content = asRecord(asRecord(candidate as JsonObject).content);
+    const parts = content.parts;
+    if (!Array.isArray(parts)) continue;
+    for (const part of parts) {
+      const text = asRecord(part as JsonObject).text;
+      if (typeof text === "string" && text.trim()) {
+        return text.trim();
+      }
+    }
+  }
+  return "";
+}
+
+function truncateText(value: unknown, maxLength = 180): string {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1)}...`;
+}
+
+function formatFactValue(value: unknown): string {
+  if (Array.isArray(value)) return value.length ? value.join(", ") : "none";
+  if (typeof value === "number") return confidenceLabel(value);
+  if (typeof value === "boolean") return value ? "yes" : "no";
+  return String(value ?? "none");
+}
+
+function stepStory(step: Step): StepStory {
+  const payload = asRecord(step.payload);
+  const snapshot = asRecord(step.snapshot);
+  const response = asRecord(payload.response);
+  const params = asRecord(payload.params);
+  const toolName = String(payload.tool_name ?? "");
+
+  if (step.step_type === "tool" && toolName === "get_project_key") {
+    return {
+      title: `Routing check returned ${formatFactValue(response.project_key)}`,
+      why:
+        "This is the tool result the agent trusted before deciding where the Jira ticket should go.",
+      facts: [
+        ["Issue", params.issue_key ?? response.issue_key],
+        ["Chosen route", response.project_key],
+        ["Confidence", response.confidence],
+        ["Evidence", response.evidence],
+        ["Source", response.source],
+        ["Drift check", payload.status === "ok" ? "passed at record time" : payload.status]
+      ]
+    };
+  }
+
+  if (step.step_type === "tool" && toolName === "update_ticket") {
+    return {
+      title: `Ticket update recorded for ${formatFactValue(params.board ?? response.board)}`,
+      why:
+        "This is the write action. Safe replay blocks this step so testing never changes Jira twice.",
+      facts: [
+        ["Issue", params.issue_key ?? response.issue_key],
+        ["Route used", params.board ?? response.board],
+        ["Replay behavior", "blocked during safe replay"],
+        ["Recorded status", response.status],
+        ["Side effect", payload.side_effect_class]
+      ]
+    };
+  }
+
+  if (step.step_type === "llm") {
+    const validatedKey = snapshot.validated_project_key;
+    const responseText = extractResponseText(payload);
+    return {
+      title: validatedKey
+        ? `Agent reasoned after route ${formatFactValue(validatedKey)}`
+        : "Agent inspected the ticket",
+      why:
+        "This is the model reasoning checkpoint. It shows what the agent saw before the next tool call.",
+      facts: [
+        ["Model", payload.model],
+        ["Ticket", asRecord(snapshot.ticket).issue_key],
+        ["Known route", validatedKey],
+        ["Response", responseText ? truncateText(responseText, 260) : "No text response captured"]
+      ]
+    };
+  }
+
+  return {
+    title: "Recorded step",
+    why: "ProxyTrace captured this step so it can be replayed and inspected later.",
+    facts: [
+      ["Type", step.step_type],
+      ["Status", payload.status]
+    ]
+  };
 }
 
 function jsonText(value: unknown): string {
@@ -358,7 +462,7 @@ export function App() {
       );
       setStrictReplay(response);
       await loadRunDetail(selectedRunId);
-      setNotice("Strict replay complete");
+      setNotice("Safe replay complete");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -389,7 +493,7 @@ export function App() {
         }
       );
       setExploratoryReplay(response);
-      setNotice("Exploratory replay complete");
+      setNotice("Route simulation complete");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -406,7 +510,7 @@ export function App() {
         replay_id: exploratoryReplay.replay_id
       });
       await loadRegressions();
-      setNotice("Regression promoted");
+      setNotice("Saved as regression test");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -421,7 +525,7 @@ export function App() {
       const response = await api.post<RegressionRunResult>("/regression/run-all");
       setRegressionResult(response);
       await loadRegressions();
-      setNotice("Regression pack checked");
+      setNotice("Saved tests checked");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -509,7 +613,7 @@ export function App() {
         />
         <Metric
           icon={<BadgeCheck size={18} />}
-          label="Regressions"
+          label="Saved Tests"
           value={String(regressions.length)}
         />
       </section>
@@ -564,11 +668,11 @@ export function App() {
             <div className="segmented">
               <button onClick={runStrictReplay} disabled={!detail || busy !== null}>
                 <RotateCcw size={15} />
-                Strict
+                Safe Replay
               </button>
               <button onClick={runPatchReplay} disabled={!detail || busy !== null}>
                 <Split size={15} />
-                What-if
+                Simulate
               </button>
             </div>
           </div>
@@ -624,8 +728,9 @@ export function App() {
 
           {selectedStep ? (
             <>
-              <JsonBlock title="Payload" value={selectedStep.payload} />
-              <JsonBlock title="Snapshot" value={selectedStep.snapshot} />
+              <StepBrief step={selectedStep} />
+              <JsonBlock title="Raw recorded payload" value={selectedStep.payload} />
+              <JsonBlock title="Recorded state snapshot" value={selectedStep.snapshot} />
             </>
           ) : (
             <div className="empty-state">
@@ -637,7 +742,7 @@ export function App() {
           <section className="action-block">
             <div className="block-heading">
               <Sparkles size={16} />
-              <span>What-if Route</span>
+              <span>Simulate Alternate Route</span>
             </div>
             <div className="board-picker">
               {ROUTE_OPTIONS.map((board) => (
@@ -656,24 +761,24 @@ export function App() {
               disabled={!detail || patchStep === null || busy !== null}
             >
               <Split size={16} />
-              Run What-if Replay
+              Simulate Route Change
             </button>
           </section>
 
           <section className="action-block">
             <div className="block-heading">
               <BadgeCheck size={16} />
-              <span>Regression</span>
+              <span>Saved Tests</span>
             </div>
             <div className="button-row">
               <button
                 onClick={promoteRegression}
                 disabled={!exploratoryReplay || busy !== null}
               >
-                Promote
+                Save as Test
               </button>
               <button onClick={runRegressionPack} disabled={busy !== null}>
-                Run All
+                Run Saved Tests
               </button>
             </div>
           </section>
@@ -682,7 +787,7 @@ export function App() {
 
       <section className="lower-grid">
         <ResultPanel
-          title="Strict Replay"
+          title="Safe Replay"
           value={{
             replay_id: strictReplay?.replay_id,
             determinism_rate: strictVerdict?.determinism_rate,
@@ -692,7 +797,7 @@ export function App() {
           }}
         />
         <ResultPanel
-          title="Divergence Report"
+          title="Route Simulation Report"
           value={{
             replay_id: exploratoryReplay?.replay_id,
             root_cause_step: evaluation.root_cause_step,
@@ -713,7 +818,7 @@ export function App() {
           }}
         />
         <ResultPanel
-          title="Regression Pack"
+          title="Saved Test Pack"
           value={{
             promoted: regressions.length,
             last_result: regressionResult,
@@ -745,14 +850,33 @@ function Metric({
   );
 }
 
+function StepBrief({ step }: { step: Step }) {
+  const story = stepStory(step);
+  return (
+    <section className="step-brief">
+      <div className="brief-heading">
+        <span className="brief-kicker">Selected Step</span>
+        <h3>{story.title}</h3>
+        <p>{story.why}</p>
+      </div>
+      <dl className="fact-list">
+        {story.facts.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{formatFactValue(value)}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 function JsonBlock({ title, value }: { title: string; value: unknown }) {
   return (
-    <section className="json-block">
-      <div className="block-heading">
-        <span>{title}</span>
-      </div>
+    <details className="json-block">
+      <summary>{title}</summary>
       <pre>{jsonText(value)}</pre>
-    </section>
+    </details>
   );
 }
 
