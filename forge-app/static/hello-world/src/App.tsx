@@ -37,22 +37,12 @@ import {
 } from "./api";
 import { view } from "@forge/bridge";
 
-const [traceIssueKey, setTraceIssueKey] = useState("");
-useEffect(() => {
-    view.getContext()
-      .then((context) => {
-        const issueKey = (context as any)?.extension?.issue?.key;
-        if (issueKey) {
-          setTraceIssueKey(issueKey);
-        }
-      })
-      .catch(() => {
-        // Not running inside Forge (e.g. local dev) — ignore.
-      });
-  }, []);
 const DEFAULT_API_BASE =
   import.meta.env.VITE_PROXYTRACE_API_URL ||
-  (import.meta.env.DEV ? "http://127.0.0.1:8000" : "");
+  (import.meta.env.DEV
+    ? "http://127.0.0.1:8000"
+    : "https://proxytrace.onrender.com");
+const VECTORS_LOGO_SRC = `${import.meta.env.BASE_URL}vectors-logo.jfif`;
 
 const ROUTE_OPTIONS = [
   { value: "PLATFORM", label: "Platform" },
@@ -223,6 +213,22 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
 
   const api = useMemo(() => new ProxyTraceApi(apiBase.replace(/\/$/, "")), [apiBase]);
+
+  useEffect(() => {
+    view
+      .getContext()
+      .then((context) => {
+        const issueKey = (context as { extension?: { issue?: { key?: string } } })
+          ?.extension?.issue?.key;
+        if (issueKey) {
+          setTraceIssueKey(issueKey);
+          setIssueFilter(issueKey);
+        }
+      })
+      .catch(() => {
+        // Local Vite previews do not have a Forge bridge context.
+      });
+  }, []);
 
   const selectedStep = useMemo(() => {
     if (!detail) return null;
@@ -436,7 +442,7 @@ export function App() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <img className="brand-mark" src="/vectors-logo.jfif" alt="Vectors" />
+          <img className="brand-mark" src={VECTORS_LOGO_SRC} alt="Vectors" />
           <div>
             <p className="brand-kicker">Vectors Software</p>
             <h1>ProxyTrace Replay Console</h1>
