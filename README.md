@@ -16,7 +16,7 @@ ProxyTrace is a debugging and evaluation layer for tool-using AI agents in enter
 
 The current implementation targets a Jira triage agent with two tools: `get_project_key` (read-only Jira project lookup) and `update_ticket` (controlled Jira write, currently implemented as a trace comment).
 
-The backend and the Phase 2 replay/evaluation path are implemented and verified against Neon PostgreSQL. Real Jira issue lookup is wired locally. Render deployment and Forge UI integration are still pending — see [Status](#status).
+The backend and the Phase 2 replay/evaluation path are implemented and verified against Neon PostgreSQL. The full-stack Render deployment is live at `https://proxytrace.onrender.com`: Render builds the React console, runs Alembic migrations, starts the FastAPI API, and serves the frontend from the same service. The Forge Custom UI issue context panel is deployed in the development environment and installed on `proxytrace.atlassian.net`, where it embeds the ProxyTrace console directly inside Jira issues.
 
 ## Problem
 
@@ -41,20 +41,18 @@ ProxyTrace addresses this by preserving the execution state of a run and replayi
 | State inspection | Implemented through `GET /runs/{run_id}` and persisted `snapshot` JSON fields. |
 | Side-effect-safe debugging | Implemented. Write/destructive tools are blocked by the firewall during replay. |
 | Divergence editing | Implemented for prompt patches and tool-result patches. |
-| Human-readable verdict | Implemented at backend level through structured evaluator output. UI presentation is pending. |
+| Human-readable verdict | Implemented through structured evaluator output and surfaced in the console report panels. |
 | Regression capture | Implemented as frozen trace assertions and AI-derived semantic assertions. Fresh-agent regression re-execution is pending. |
 | Data sensitivity | Implemented for capture paths with recursive redaction before prompt/tool payloads are stored. |
 | Contract drift detection | Implemented. `/mcp` records descriptor hashes, checks drift automatically, and drift endpoints support on-demand re-checks. |
-| Frontend console | Implemented as a React/Vite operator console for Jira issue trigger, trace list, timeline, inspector, replay, patch, diff, drift, and regression flows. Forge embedding is pending. |
+| Frontend console | Implemented as a React/Vite operator console for Jira issue trigger, trace list, timeline, inspector, replay, patch, diff, drift, and regression flows. It is hosted on Render and embedded in Jira through Forge Custom UI. |
 
 ### Remaining Work
 
-1. Complete the public Render deployment and verify the health check.
-2. Set production Render env vars for Neon, Gemini, Atlassian, redaction, and backend/frontend URLs.
-3. Embed the React console inside a Forge issue panel.
-4. Add Jira workflow transition support after reading the project transition IDs.
-5. Publish the final evaluation/SPEC artifacts and demo video.
-6. Extend the regression runner to re-execute a fresh agent version against frozen assertions, rather than only checking consistency of the frozen trace itself.
+1. Add Jira workflow transition support after reading the project transition IDs.
+2. Publish the final evaluation/SPEC artifacts and demo video.
+3. Extend the regression runner to re-execute a fresh agent version against frozen assertions, rather than only checking consistency of the frozen trace itself.
+4. Harden production operations around auth, rate limits, logs, and Render cold-start behavior.
 
 ## Architecture
 
@@ -240,44 +238,103 @@ alembic revision --autogenerate -m "describe your change"
 
 ### Deployment
 
-`render.yaml` runs `alembic upgrade head` as part of the build command before the service starts.
+`render.yaml` installs the Python package, builds the React frontend, and runs `alembic upgrade head` as part of the build command before the service starts.
 No manual schema management is needed on Render — migrations run automatically on every deploy.
 
 ```yaml
-buildCommand: pip install -e . && alembic upgrade head
+buildCommand: pip install -e . && npm --prefix frontend ci && npm --prefix frontend run build && alembic upgrade head
 ```
 
 ## Render Deployment Check
 
-Render uses `render.yaml` to install dependencies, run `alembic upgrade head`, and start the FastAPI service. Configure these environment variables in Render:
+Render uses `render.yaml` to install dependencies, build the standalone frontend, run `alembic upgrade head`, and start the FastAPI service. The current public service is:
+
+```text
+https://proxytrace.onrender.com
+```
+
+Configure these environment variables in Render:
 
 ```text
 DATABASE_URL=postgresql://USER:PASSWORD@HOST/proxytrace?sslmode=require
-PROXYTRACE_API_URL=https://YOUR-RENDER-SERVICE.onrender.com
+PROXYTRACE_API_URL=https://proxytrace.onrender.com
 GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-3.1-flash-lite
 REDACTION_ENABLED=true
-DEMO_TOOL_MODE=true
+DEMO_TOOL_MODE=false
+ATLASSIAN_SITE_URL=https://proxytrace.atlassian.net
+ATLASSIAN_EMAIL=...
+ATLASSIAN_API_TOKEN=...
+ATLASSIAN_PROJECT_KEY=SCRUM
 ```
 
 Verify the deployed API:
 
 ```powershell
-$baseUrl = "https://YOUR-RENDER-SERVICE.onrender.com"
+$baseUrl = "https://proxytrace.onrender.com"
 Invoke-RestMethod "$baseUrl/health"
+Invoke-RestMethod "$baseUrl/runs?limit=1"
+Invoke-RestMethod "$baseUrl/regression?limit=1"
 ```
 
 Record and replay a deployed trace:
 
 ```powershell
 $env:PROXYTRACE_API_URL = $baseUrl
-python -m proxytrace.agent_demo.run_demo --issue-key DEMO-RENDER-1 --summary "API deploy pipeline fails" --description "The platform release pipeline fails after an API change."
-$runId = "<run_id from demo output>"
+$trace = Invoke-RestMethod -Method Post "$baseUrl/jira/trace" -ContentType "application/json" -Body '{"issue_key":"SCRUM-1"}'
+$runId = $trace.run_id
 Invoke-RestMethod -Method Post "$baseUrl/runs/$runId/replay/strict"
 Invoke-RestMethod "$baseUrl/runs/$runId/warnings"
 ```
 
-The strict replay should report `live_call_count=0`, `determinism_rate=1.0`, and a blocked `update_ticket` side effect warning.
+The strict replay should report `live_call_count=0`, `determinism_rate=1.0`, and a blocked `update_ticket` side effect warning for runs that include the write step.
+
+## Forge Jira Issue Panel
+
+The Forge app lives in `forge-app` and embeds the custom React console from `forge-app/static/hello-world` as a `jira:issueContext` module. It is deployed to the Forge development environment and installed on:
+
+```text
+proxytrace.atlassian.net
+```
+
+The issue panel:
+
+- reads the current Jira issue key from `@forge/bridge` context
+- pre-fills the trace input and trace-list filter
+- calls the Render API at `https://proxytrace.onrender.com`
+- renders the trace list, timeline, inspector, ReactFlow replay graph, replay controls, drift metrics, and regression controls inside the Jira issue view
+
+Important Forge details:
+
+| File | Purpose |
+|---|---|
+| `forge-app/manifest.yml` | declares the `jira:issueContext` module, custom UI resource, resolver, Jira scope, and client/backend egress to Render |
+| `forge-app/src/index.js` | resolver used by the Forge app |
+| `forge-app/static/hello-world/src/App.tsx` | Forge-mounted React console |
+| `forge-app/static/hello-world/vite.config.ts` | Vite config with relative asset base for Forge static hosting |
+
+Deploy the Forge UI after changing the custom UI or manifest:
+
+```powershell
+cd forge-app\static\hello-world
+npm install
+npm run build
+
+cd ..\..
+forge lint
+forge deploy --non-interactive -e development
+```
+
+If `manifest.yml` changes scopes, egress, modules, or permissions, upgrade the installed development app after deploy:
+
+```powershell
+forge install --non-interactive --upgrade --site proxytrace.atlassian.net --product jira --environment development
+```
+
+The latest verified Forge deployment fixed two integration issues:
+
+- invalid React hook usage before render, which caused a blank Jira panel
+- missing production API base/client egress, which caused the panel to call Atlassian's CDN instead of the Render backend
 
 ## API Surface
 
@@ -305,7 +362,9 @@ The strict replay should report `live_call_count=0`, `determinism_rate=1.0`, and
 
 ## Frontend Console
 
-The React console lives in `frontend`. It uses `VITE_PROXYTRACE_API_URL` to call the FastAPI backend and defaults to `http://127.0.0.1:8000`.
+The standalone React console lives in `frontend`. It uses `VITE_PROXYTRACE_API_URL` to call the FastAPI backend and defaults to `http://127.0.0.1:8000` in local development. On Render, `render.yaml` builds `frontend/dist` and `proxytrace.proxy.frontend.mount_frontend()` serves it from the FastAPI app.
+
+The Forge issue-panel console lives in `forge-app/static/hello-world`. It shares the same core interaction model but reads Jira issue context from `@forge/bridge` and defaults production API calls to `https://proxytrace.onrender.com`.
 
 On Windows, `start.ps1` stops existing listeners on ports `8000` and `5173`, starts the backend and frontend in separate terminal tabs or windows, and opens the console.
 
@@ -356,6 +415,10 @@ migrations/
 tests/
   test_*.py            focused backend tests
 frontend/              React/Vite ProxyTrace console
+forge-app/             Forge Custom UI issue-context app for Jira
+  manifest.yml         Forge modules, resource, resolver, scopes, and egress
+  src/                 Forge resolver function
+  static/hello-world/  Forge-mounted React/Vite console bundle
 alembic.ini            Alembic configuration
 render.yaml            Render web service configuration
 Makefile               local dev convenience targets

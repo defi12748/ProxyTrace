@@ -1,6 +1,6 @@
 # ProxyTrace Progress
 
-Last verified: 2026-06-18, Africa/Lagos.
+Last verified: 2026-06-19, Africa/Lagos.
 
 Source of truth: `ProxyTrace_WinningPlan (3).docx`.
 
@@ -8,25 +8,25 @@ Important override: the docx names a different scorer provider in examples, but 
 
 ## Alignment Verdict
 
-We are aligned with the docx direction and Use Case 2 architecture, but we are not 100% complete against the full judging gate yet.
+We are aligned with the docx direction and Use Case 2 architecture, and the core integration gate is now complete: backend, Render deployment, standalone frontend, Forge issue panel, real Jira issue context, replay, patch, drift, and regression controls all run through the live demo path.
 
-The current highest-scoring risk is the integration proof, not the core mechanism. ProxyTrace now captures and replays AI-agent behavior, uses Gemini for structured divergence verdicts, adds a Gemini semantic outcome judge that produces assertion candidates for regression promotion, and includes the synthetic evaluation pipeline for measuring that behavior. The remaining proof work is Render/Forge deployment and a full real Jira workflow pass.
+The current highest-scoring remaining work is packaging and polish, not core mechanism or integration proof. ProxyTrace captures and replays AI-agent behavior, uses Gemini for structured divergence verdicts, adds a Gemini semantic outcome judge that produces assertion candidates for regression promotion, includes the synthetic evaluation pipeline, serves the full-stack app from Render, and embeds the console inside Jira through Forge Custom UI.
 
 ## Completion Estimate
 
-Overall docx plan: about 44% complete.
+Overall docx plan: about 82% complete.
 
-Phase 1 foundation code: about 94% complete.
+Phase 1 foundation code: about 96% complete.
 
-Phase 1 gate proof: about 68% complete, because the code path has now been proven with Neon, 5 demo traces, and one live Gemini-patched LLM capture run, but not yet with Render, Forge Remote, or real Jira tools.
+Phase 1 gate proof: about 92% complete, because the code path has now been proven with Neon, Render, real Jira issue reads, the Forge Jira panel, 5 demo traces, and live Gemini-patched LLM capture. Remaining Phase 1 proof is mostly deeper workflow-transition coverage and production hardening.
 
 Breakdown:
 
-- Day 0 infrastructure: about 45%; Neon schema init is verified, Render config exists, but Render deploy and Forge spike are not connected yet.
-- Phase 1 recording/proxy/replay/firewall: about 93%; core backend modules exist, 5 Neon-backed demo traces replayed, Gemini SDK capture was verified, drift checker is automatically wired into `/mcp`, drift endpoints are route-tested, but real Atlassian verification is still missing.
+- Day 0 infrastructure: about 100%; Neon schema init, Render deploy, Render health checks, and Forge development install are verified.
+- Phase 1 recording/proxy/replay/firewall: about 96%; core backend modules exist, 5 Neon-backed demo traces replayed, Gemini SDK capture was verified, drift checker is automatically wired into `/mcp`, drift endpoints are route-tested, and real Atlassian issue reads are wired.
 - Phase 2 patch/diff/evaluator/regression: 100%; patch engine, exploratory replay, divergence diff, Gemini structured scorer, hybrid evaluator, regression promotion, and run-all exist.
-- Phase 3 frontend/Forge UI: about 35%; standalone React/Vite console exists and builds, Forge embedding is pending.
-- Phase 4 evaluation/polish: about 50%; labels exist, synthetic traces generated, and the 20-trace evaluation report is complete. Remaining is the SPEC.md and demo video.
+- Phase 3 frontend/Forge UI: about 90%; standalone React/Vite console builds and is deployed on Render, Forge Custom UI issue panel is deployed and installed, and the Jira issue context demo path works. Remaining work is polish and responsive tuning.
+- Phase 4 evaluation/polish: about 65%; labels exist, synthetic traces generated, and the 20-trace evaluation report is complete. Remaining is the SPEC.md, demo video, and final narrative pass.
 
 Judging-risk adjustment: the engineering foundation is strong, but first-place positioning depends on proving that AI is load-bearing in the replay/evaluation mechanism. Semantic outcome judging is now implemented; evaluation proof should happen before major frontend polish.
 
@@ -42,14 +42,16 @@ What is aligned:
 - Data sensitivity is now handled in capture paths with default redaction before persistence.
 - Contract drift detection is now implemented, wired into the FastAPI app, and run automatically after `/mcp` records a tool step.
 - Standalone React/Vite console is implemented for the core demo loop.
+- Render builds and serves the full-stack app at `https://proxytrace.onrender.com`.
+- Forge Custom UI is deployed to the development environment and installed on `proxytrace.atlassian.net`.
+- The Jira issue panel reads `@forge/bridge` issue context, pre-fills `SCRUM-1`, calls the Render backend, and renders real trace/timeline data.
 
 What is not fully proven yet:
 
-- Render deployment has not been performed or health-checked from a public URL.
-- Forge Day 0 spike has not been scaffolded/deployed.
-- The demo agent has not been run against a real Atlassian developer workspace.
-- Alembic migrations are added, but the public Render deployment has not yet proven the migration path end to end.
+- Jira workflow transition support is not implemented yet; the current write-side Jira action is a controlled comment/mock-safe trace update.
+- The regression runner validates frozen trace consistency and semantic assertions, but does not yet re-execute a fresh agent version.
 - The 20-trace synthetic evaluation pipeline exists; the final public evaluation artifact still needs to be published with the demo materials.
+- Production-grade auth/rate-limit/logging hardening remains future work beyond the hackathon demo path.
 
 ## Done
 
@@ -312,6 +314,42 @@ What is not fully proven yet:
 - README `## Database Migrations` section added covering: migration files table, all common `alembic` commands, step-by-step instructions for creating new migrations, and deployment notes.
 - README `## Setup` step 3 updated to clearly separate `alembic upgrade head` (schema) from `python -m proxytrace.db.init_db` (seed data only).
 
+### 2026-06-19 Render + Forge Integration Completion
+
+- Deployed the FastAPI backend and standalone frontend to Render at `https://proxytrace.onrender.com`.
+- Updated `render.yaml` so Render now:
+  - installs the Python package with `pip install -e .`
+  - installs frontend dependencies with `npm --prefix frontend ci`
+  - builds the standalone React console with `npm --prefix frontend run build`
+  - runs `alembic upgrade head`
+  - starts `uvicorn proxytrace.proxy.main:app --host 0.0.0.0 --port $PORT`
+- Verified the public Render service:
+  - `GET /health` returns `{"status":"ok","service":"proxytrace"}`
+  - `GET /runs?jira_issue_key=SCRUM-1&limit=2` returns live `SCRUM-1` traces
+  - `GET /regression?limit=1` returns a valid regression response
+- Deployed the Forge app in `forge-app` as a `jira:issueContext` Custom UI panel.
+- Installed/upgraded the Forge development app on `proxytrace.atlassian.net`.
+- Verified the Jira issue panel renders inside the `SCRUM-1` issue under `proxytrace-forge DEV`.
+- Fixed the blank Forge panel by moving `@forge/bridge` context lookup and React hooks inside the `App` component render lifecycle.
+- Fixed Forge static asset loading by using the Vite base URL for `vectors-logo.jfif`.
+- Fixed Forge production API calls by defaulting the Custom UI build to `https://proxytrace.onrender.com` instead of an empty base path.
+- Added Forge Custom UI client egress to `manifest.yml`:
+  - `permissions.external.fetch.client` includes `https://proxytrace.onrender.com`
+  - backend egress remains allowed for the same Render host
+- Rebuilt, linted, deployed, and upgraded Forge after the manifest change:
+  - `npm run build`
+  - `forge lint`
+  - `forge deploy --non-interactive -e development`
+  - `forge install --non-interactive --upgrade --site proxytrace.atlassian.net --product jira --environment development`
+- Latest verified Forge development deployment: `4.0.0`.
+- Verified the Forge issue panel now shows:
+  - current issue key prefilled from Jira context
+  - trace list filtered to `SCRUM-1`
+  - ordered LLM/tool timeline
+  - ReactFlow trajectory graph
+  - replay controls for strict and what-if paths
+  - metrics for steps, live calls, determinism, drift, and regressions
+
 ## Current Files That Matter
 
 - `README.md` - judge-facing project explanation and setup path.
@@ -338,6 +376,10 @@ What is not fully proven yet:
 - `proxytrace/drift/checker.py` - contract drift detection across input schema, output schema, and descriptor.
 - `proxytrace/proxy/routes/drift.py` - drift check API endpoints.
 - `frontend` - React/Vite standalone console for Jira-triggered trace/replay loop.
+- `forge-app/manifest.yml` - Forge Jira issue-context module, resource path, scopes, and Render egress.
+- `forge-app/src/index.js` - Forge resolver function.
+- `forge-app/static/hello-world/src/App.tsx` - Forge-mounted React/Vite console with Jira context.
+- `forge-app/static/hello-world/vite.config.ts` - Vite config for Forge static Custom UI hosting.
 - `start.ps1` - local launcher for backend + frontend.
 - `proxytrace/contracts/registry.py` - default tool contracts.
 - `proxytrace/db/models.py` - Neon/PostgreSQL table models.
@@ -345,27 +387,24 @@ What is not fully proven yet:
 
 ## Next Work
 
-### Immediate Deploy / Integration Gate Work
+### Immediate Demo Packaging
 
-1. Deploy FastAPI backend to Render.
-2. Add Render env vars:
-   - `DATABASE_URL`
-   - `GEMINI_API_KEY`
-   - `GEMINI_MODEL=gemini-3.1-flash-lite`
-   - `REDACTION_ENABLED=true`
-3. Verify Render `GET /health` returns 200.
-4. Run `POST /jira/trace` through the Render URL for `SCRUM-1`.
-5. Run strict replay on Render-recorded traces and confirm:
-   - determinism rate is `1.0`
-   - live call count is `0`
-   - `update_ticket` is blocked by the firewall
-   - warnings are logged in `drift_warnings`
+1. Record the final Jira issue-panel demo path:
+   - open `SCRUM-1` in Jira
+   - trigger or select a traced run
+   - show timeline and inspector
+   - run strict replay
+   - run a what-if replay
+   - show semantic verdict and regression controls
+2. Publish `contracts/SPEC.md` as the open contribution artifact.
+3. Produce the final judge-facing README pass after the demo script is locked.
+4. Capture screenshots or short clips of the Render standalone console and Forge issue panel.
 
 ### Phase 1 Hardening
 
-1. Run the full traced agent flow against a real Atlassian developer workspace.
-2. Add Jira workflow transition support after reading available transition IDs.
-3. Add deeper tests for proxy recording and strict replay.
+1. Add Jira workflow transition support after reading available transition IDs.
+2. Add deeper tests for proxy recording and strict replay.
+3. Add explicit smoke-test notes for Render cold starts and public health checks.
 
 ### Phase 2
 
@@ -376,22 +415,21 @@ What is not fully proven yet:
 
 ### Phase 3: Frontend & Jira Integration
 
-1. Polish the standalone console after one live demo pass.
-2. Add a Forge issue-panel wrapper around the React console.
-3. Connect Forge issue context to `POST /jira/trace` and `GET /runs?jira_issue_key={key}`.
-4. Deploy Forge app against the Render backend.
-5. Record the full issue-panel demo path.
+1. Polish compact issue-panel layout after repeated Jira use.
+2. Improve overflow behavior for long hashes and dense trace timelines.
+3. Consider extracting shared frontend code between `frontend` and `forge-app/static/hello-world` after the hackathon deadline.
+4. Add a small visible backend-status indicator for Render cold-start or API failure states.
 
 ### Phase 4: Final Polish
 
-1. Publish `contracts/SPEC.md` as the open contribution artifact.
-2. Record the final 5-minute demo video.
+1. Record the final 5-minute demo video.
+2. Add final evaluation artifact links.
+3. Tighten language around Gemini being load-bearing in divergence attribution and semantic regression assertions.
 
 ## Current Risk Register
 
-- No Render deployment yet means Forge Remote cannot call the backend yet.
-- No Forge spike yet means commercial integration is not proven.
-- No real Jira workspace run yet means the current demo agent is still a local proxy proof.
+- Jira workflow transition support is not implemented yet; current write-side behavior is a controlled comment/mock-safe update path.
 - Regression runner currently validates frozen trace consistency and final-state assertions. It does not yet re-execute a fresh agent version against the frozen assertions.
 - Redaction covers common PII/secret patterns but still needs an evaluation note describing scope and limitations.
 - Gemini model name is set to `gemini-3.1-flash-lite`; if the provider exposes a different canonical ID, update env only.
+- Forge app is currently installed from the development environment on the production Atlassian site for demo purposes. Production release/install remains a packaging step if this becomes a real customer deployment.
