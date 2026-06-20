@@ -24,17 +24,31 @@ export function StepTimeline({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2px", padding: "8px" }}>
-      {steps.map((step) => {
+      {steps.map((step, index) => {
         const active = step.step_id === selectedStepId;
         const hasDrift = warnedStepIds.has(step.step_id);
         const isLlm = step.step_type === "llm";
 
         return (
-          <button
-            key={step.step_id}
-            id={`step-btn-${step.step_id}`}
-            onClick={() => onSelect(step.step_id)}
-            style={{
+          <div key={step.step_id} style={{ position: "relative" }}>
+            {index < steps.length - 1 && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: "22px",
+                  top: "35px",
+                  width: "2px",
+                  height: "12px",
+                  background: "var(--border-strong)",
+                  zIndex: 0,
+                }}
+              />
+            )}
+            <button
+              id={`step-btn-${step.step_id}`}
+              onClick={() => onSelect(step.step_id)}
+              className="premium-row"
+              style={{
               display: "flex",
               alignItems: "center",
               gap: "10px",
@@ -120,6 +134,7 @@ export function StepTimeline({
               </Badge>
             </div>
           </button>
+        </div>
         );
       })}
     </div>

@@ -266,6 +266,7 @@ export function RegressionPage() {
               return (
                 <div key={reg.test_id}>
                   <button
+                    className="premium-row"
                     id={`regression-row-${reg.test_id}`}
                     onClick={() => setExpandedId(expanded ? null : reg.test_id)}
                     style={{

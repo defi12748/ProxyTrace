@@ -7,9 +7,10 @@ interface CardProps {
 }
 
 /* Matches dotrack StatCard: bg-[#f5f6f8] rounded-lg border border-[#b3b4c6] */
-export function Card({ children, style }: CardProps) {
+export function Card({ children, style, className = "" }: CardProps) {
   return (
     <div
+      className={`premium-card ${className}`}
       style={{
         background: "var(--bg-surface)",
         border: "1px solid var(--border-strong)",

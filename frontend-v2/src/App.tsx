@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
 import { ToastContainer } from "./components/ui/Toast";
+import { CommandPalette } from "./components/ui/CommandPalette";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TracesPage } from "./pages/TracesPage";
 import { TraceDetailPage } from "./pages/TraceDetailPage";
@@ -36,6 +37,7 @@ export function App() {
         </div>
       </div>
 
+      <CommandPalette />
       <ToastContainer />
     </BrowserRouter>
   );

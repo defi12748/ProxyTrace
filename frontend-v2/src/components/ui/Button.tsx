@@ -9,6 +9,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
   icon?: ReactNode;
   children: ReactNode;
+  className?: string;
 }
 
 const variantStyle: Record<Variant, CSSProperties> = {
@@ -66,6 +67,7 @@ export function Button({
   style,
   onMouseEnter,
   onMouseLeave,
+  className = "",
   ...rest
 }: ButtonProps) {
   const base = variantStyle[variant];
@@ -73,6 +75,7 @@ export function Button({
 
   return (
     <button
+      className={`premium-button ${className}`}
       {...rest}
       disabled={disabled || loading}
       onMouseEnter={(e) => {

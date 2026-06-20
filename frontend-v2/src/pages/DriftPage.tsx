@@ -242,6 +242,7 @@ export function DriftPage() {
               return (
                 <div key={row.warning_id}>
                   <button
+                    className="premium-row"
                     onClick={() =>
                       setExpandedId(expanded ? null : row.warning_id)
                     }
