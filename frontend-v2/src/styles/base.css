@@ -67,6 +67,8 @@ input, textarea, select {
   padding: 28px 32px;
   max-width: 1440px;
   width: 100%;
+  margin: 0 auto;       /* stays centered when sidebar expands/collapses */
+  box-sizing: border-box;
 }
 
 /* ---- Scrollbar ---- */
