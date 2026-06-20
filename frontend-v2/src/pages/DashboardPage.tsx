@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Activity, AlertTriangle, BadgeCheck, Database,
+  AlertTriangle, BadgeCheck, Database,
   Play, RefreshCw, ShieldCheck, Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -38,7 +38,6 @@ export function DashboardPage() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [regressions, setRegressions] = useState<RegressionItem[]>([]);
   const [warnings, setWarnings] = useState<Warning[]>([]);
-  const [backendOk, setBackendOk] = useState<boolean | null>(null);
   const [traceKey, setTraceKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -61,14 +60,12 @@ export function DashboardPage() {
   const refresh = useCallback(async () => {
     setBusy("refresh");
     try {
-      const [runRes, regRes, health] = await Promise.all([
+      const [runRes, regRes] = await Promise.all([
         api.get<{ runs: Run[] }>("/runs?limit=50"),
         api.get<{ regressions: RegressionItem[] }>("/regression?limit=50"),
-        api.get<{ status: string }>("/health").catch(() => null),
       ]);
       setRuns(runRes.runs);
       setRegressions(regRes.regressions);
-      setBackendOk(health?.status === "ok");
 
       const warningResps = await Promise.all(
         runRes.runs.slice(0, 5).map((r) =>
@@ -78,7 +75,7 @@ export function DashboardPage() {
       );
       setWarnings(warningResps.flatMap((r) => r.warnings));
     } catch {
-      setBackendOk(false);
+      // API error handled
     } finally {
       setBusy(null);
       setLoading(false);
@@ -119,7 +116,7 @@ export function DashboardPage() {
       }
     >
       {/* ── KPI Metrics ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "16px" }}>
         {loading ? (
           Array.from({ length: 5 }).map((_, i) => <SkeletonMetric key={i} />)
         ) : (
@@ -148,13 +145,6 @@ export function DashboardPage() {
                 delta={passRate !== null && passRate >= 80 ? "Above threshold" : "Needs attention"}
                 deltaColor={passRate !== null && passRate >= 80 ? "var(--green-text)" : "var(--amber-text)"} />
             </div>
-            <div className="animate-fade-in" style={{ "--stagger": "200ms" } as React.CSSProperties}>
-              <Metric label="Backend" subtitle="Status"
-                value={backendOk === null ? "…" : backendOk ? "Online" : "Offline"} animate={false}
-                icon={<Activity size={18} style={{ color: backendOk ? "var(--green-text)" : "var(--rose-text)" }} />}
-                iconBg={backendOk ? "var(--green-dim)" : "var(--rose-dim)"}
-                delta="Render cloud" deltaColor="var(--text-muted)" />
-            </div>
           </>
         )}
       </div>
@@ -181,16 +171,8 @@ export function DashboardPage() {
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: "16px", justifyContent: "space-between", paddingBottom: "4px", flex: 1 }}>
-                <div style={{ flex: 1, minWidth: 0, height: "72px" }}>
-                  <SparkBar data={sparkData} height={72} color="var(--blue)" driftColor="var(--amber)" />
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px", paddingLeft: "16px", flexShrink: 0 }}>
-                  {sparkData.map((d, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "16px", fontSize: "10px", color: "var(--text-muted)" }}>
-                      <span>{d.label.split(",")[0]}</span>
-                      <span style={{ fontWeight: 600, color: d.value > 0 ? "var(--text-secondary)" : "var(--border-strong)" }}>{d.value}</span>
-                    </div>
-                  ))}
+                <div style={{ flex: 1, minWidth: 0, height: "100%", minHeight: "100px" }}>
+                  <SparkBar data={sparkData} height="100%" color="var(--blue)" driftColor="var(--amber)" />
                 </div>
               </div>
             </div>

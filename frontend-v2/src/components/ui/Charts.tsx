@@ -1,39 +1,52 @@
 /* ======================================================
-   Pure SVG charts — no third-party library needed
+   Charts powered by Recharts
    Matches dotrack's minimalist chart aesthetics
    ====================================================== */
+import { BarChart, Bar, Tooltip, ResponsiveContainer, Cell, XAxis, PieChart, Pie } from 'recharts';
 
 interface SparkBarProps {
   data: { label: string; value: number; hasDrift?: boolean }[];
-  height?: number;
+  height?: number | string;
   color?: string;
   driftColor?: string;
 }
 
 /** 7-day activity bar chart — green bars, amber when drift detected */
 export function SparkBar({ data, height = 64, color = "var(--blue)", driftColor = "var(--amber)" }: SparkBarProps) {
-  const max = Math.max(...data.map((d) => d.value), 1);
-  
+  const chartData = data.map(d => ({
+    ...d,
+    shortLabel: d.label.split(',')[0],
+  }));
+
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", height, width: "100%", gap: "6px" }}>
-      {data.map((d, i) => {
-        const barH = Math.max((d.value / max) * 100, d.value > 0 ? 12 : 4);
-        const fill = d.hasDrift ? driftColor : color;
-        return (
-          <div key={i} style={{ flex: 1, maxWidth: "24px", height: "100%", display: "flex", alignItems: "flex-end" }}>
-            <div
-              title={`${d.label}: ${d.value} run${d.value !== 1 ? "s" : ""}${d.hasDrift ? " · drift" : ""}`}
-              style={{
-                width: "100%",
-                height: `${barH}%`,
-                background: d.value > 0 ? fill : "var(--border)",
-                borderRadius: "4px",
-                transition: "height 0.6s ease",
-              }}
-            />
-          </div>
-        );
-      })}
+    <div style={{ width: "100%", height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+          <XAxis 
+            dataKey="shortLabel" 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fontSize: 11, fill: 'var(--text-muted)' }} 
+            dy={8} 
+            height={24} 
+          />
+          <Tooltip 
+            cursor={{ fill: 'var(--bg-raised)', radius: 4 }}
+            contentStyle={{ background: 'var(--bg-surface)', border: '1px solid var(--border-strong)', borderRadius: '8px', boxShadow: 'var(--shadow-md)', fontSize: '13px', padding: '10px 14px' }}
+            itemStyle={{ color: 'var(--text-secondary)', fontWeight: 600 }}
+            labelStyle={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}
+            formatter={(value: any, _name: any, props: any) => [
+              `${value} run${value !== 1 ? 's' : ''}${props.payload.hasDrift ? ' (Drift Detected)' : ''}`, 
+              'Count'
+            ]}
+          />
+          <Bar dataKey="value" radius={[4, 4, 4, 4]} animationDuration={1000} animationEasing="ease-out">
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.hasDrift ? driftColor : color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -46,53 +59,38 @@ interface DonutProps {
 
 /** Status donut chart — completed / failed / running breakdown */
 export function DonutChart({ segments, size = 96, thickness = 14 }: DonutProps) {
-  const r = (size - thickness) / 2;
-  const cx = size / 2;
-  const cy = size / 2;
-  const circumference = 2 * Math.PI * r;
-  const total = segments.reduce((s, seg) => s + seg.value, 0);
-
-  if (total === 0) {
-    return (
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth={thickness} />
-      </svg>
-    );
-  }
-
-  let offset = 0;
-  // Start from top (-90deg = -circumference/4 offset)
-  const startOffset = circumference / 4;
+  const outerRadius = size / 2;
+  const innerRadius = outerRadius - thickness;
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
-      {/* Background track */}
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth={thickness} />
-      {segments.map((seg, i) => {
-        if (seg.value === 0) return null;
-        const portion = seg.value / total;
-        const dash = portion * circumference;
-        const segOffset = startOffset - offset;
-        offset += dash;
-        return (
-          <circle
-            key={i}
-            cx={cx}
-            cy={cy}
-            r={r}
-            fill="none"
-            stroke={seg.color}
-            strokeWidth={thickness}
-            strokeDasharray={`${dash} ${circumference - dash}`}
-            strokeDashoffset={segOffset}
-            strokeLinecap="round"
-            style={{ transition: "stroke-dasharray 0.6s ease" }}
+    <div style={{ width: size, height: size }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={segments}
+            cx="50%"
+            cy="50%"
+            innerRadius={innerRadius}
+            outerRadius={outerRadius}
+            paddingAngle={2}
+            dataKey="value"
+            stroke="none"
+            animationDuration={1000}
+            animationEasing="ease-out"
           >
-            <title>{seg.label}: {seg.value}</title>
-          </circle>
-        );
-      })}
-    </svg>
+            {segments.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Pie>
+          <Tooltip 
+            cursor={{ fill: 'var(--bg-raised)' }}
+            contentStyle={{ background: 'var(--bg-surface)', border: '1px solid var(--border-strong)', borderRadius: '8px', boxShadow: 'var(--shadow-md)', fontSize: '13px', padding: '8px 12px' }}
+            itemStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
+            formatter={(value: any) => [value, 'Runs']}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
