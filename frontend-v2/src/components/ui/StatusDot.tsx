@@ -3,31 +3,28 @@ interface StatusDotProps {
   pulse?: boolean;
 }
 
-const dotColor: Record<string, string> = {
-  completed: "var(--emerald)",
-  running:   "var(--cyan)",
-  failed:    "var(--rose)",
-  pending:   "var(--amber)",
-};
+function dotColor(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "completed") return "var(--green)";
+  if (s === "running" || s === "in_progress") return "var(--blue)";
+  if (s === "failed" || s === "cancelled") return "var(--rose)";
+  return "var(--text-muted)";
+}
 
-export function StatusDot({ status, pulse }: StatusDotProps) {
-  const color = dotColor[status] ?? "var(--text-muted)";
+export function StatusDot({ status, pulse = true }: StatusDotProps) {
+  const color = dotColor(status);
   return (
     <span
       style={{
-        display: "inline-block",
         width: "8px",
         height: "8px",
         borderRadius: "50%",
         background: color,
+        display: "inline-block",
         flexShrink: 0,
-        ...(pulse && status === "running"
-          ? {
-              boxShadow: `0 0 0 0 ${color}`,
-              animation: "pulseDot 1.5s ease-in-out infinite",
-              color,
-            }
-          : {}),
+        animation: pulse && status.toLowerCase() === "running"
+          ? "pulseDot 1.5s ease-in-out infinite"
+          : undefined,
       }}
     />
   );

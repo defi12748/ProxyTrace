@@ -27,7 +27,7 @@ export function StepInspector({ step }: StepInspectorProps) {
           background: "var(--bg-raised)",
           border: "1px solid var(--border)",
           borderRadius: "var(--radius-lg)",
-          borderLeft: `3px solid ${isLlm ? "var(--violet)" : "var(--cyan)"}`,
+          borderLeft: `3px solid ${isLlm ? "var(--purple)" : "var(--blue)"}`,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
@@ -37,7 +37,7 @@ export function StepInspector({ step }: StepInspectorProps) {
               fontWeight: 700,
               textTransform: "uppercase",
               letterSpacing: "0.08em",
-              color: isLlm ? "var(--violet)" : "var(--cyan)",
+              color: isLlm ? "var(--purple-text)" : "var(--blue-text)",
             }}
           >
             Step {step.step_index} · {step.step_type}
@@ -118,8 +118,8 @@ export function StepInspector({ step }: StepInspectorProps) {
       )}
 
       {/* Raw JSON */}
-      <CodeBlock title="Recorded payload" value={step.payload} collapsed />
-      <CodeBlock title="State snapshot" value={step.snapshot} collapsed />
+      <CodeBlock value={step.payload} collapsed />
+      <CodeBlock value={step.snapshot} collapsed />
     </div>
   );
 }

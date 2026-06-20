@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Brain, AlertOctagon, TrendingUp, User, Zap, GitBranch } from "lucide-react";
 import { Badge } from "../ui/Badge";
 import { asRecord } from "../../api/client";
@@ -8,11 +9,11 @@ interface VerdictPanelProps {
   replay: ExploratoryReplay;
 }
 
-function riskColor(level: unknown): "rose" | "amber" | "emerald" | "muted" {
+function riskColor(level: unknown): "rose" | "amber" | "green" | "gray" {
   if (level === "high") return "rose";
   if (level === "medium") return "amber";
-  if (level === "low") return "emerald";
-  return "muted";
+  if (level === "low") return "green";
+  return "gray";
 }
 
 export function VerdictPanel({ replay }: VerdictPanelProps) {
@@ -60,10 +61,9 @@ export function VerdictPanel({ replay }: VerdictPanelProps) {
             </Badge>
           )}
           {evaluation.human_review_required && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "2px 8px", borderRadius: "var(--radius-full)", fontSize: "11px", fontWeight: 600, background: "var(--amber-dim)", color: "var(--amber)", border: "1px solid rgba(251,191,36,0.3)" }}>
-              <User size={10} />
-              Review needed
-            </span>
+            <Badge color="amber">
+              <User size={10} /> Review needed
+            </Badge>
           )}
         </div>
       </div>
@@ -75,7 +75,7 @@ export function VerdictPanel({ replay }: VerdictPanelProps) {
             icon={<TrendingUp size={13} />}
             label="Judge confidence"
             value={confidenceLabel(confidence)}
-            color={confidence > 0.7 ? "var(--emerald)" : "var(--amber)"}
+            color={confidence > 0.7 ? "var(--green-text)" : "var(--amber-text)"}
           />
         )}
         {evaluation.root_cause_step !== undefined && (
@@ -92,12 +92,12 @@ export function VerdictPanel({ replay }: VerdictPanelProps) {
             value={String(evaluation.divergence_type)}
           />
         )}
-        {evaluation.ai_load_bearing !== undefined && (
+          {evaluation.ai_load_bearing !== undefined && (
           <StatBox
             icon={<Brain size={13} />}
             label="AI load-bearing"
             value={evaluation.ai_load_bearing ? "yes" : "no"}
-            color={evaluation.ai_load_bearing ? "var(--violet)" : "var(--text-muted)"}
+            color={evaluation.ai_load_bearing ? "var(--purple-text)" : "var(--text-muted)"}
           />
         )}
       </div>
@@ -113,8 +113,8 @@ export function VerdictPanel({ replay }: VerdictPanelProps) {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
-            <AlertOctagon size={13} style={{ color: "var(--violet)" }} />
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--violet)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <AlertOctagon size={13} style={{ color: "var(--purple-text)" }} />
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--purple-text)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               Semantic Judgment
             </span>
           </div>
@@ -150,7 +150,7 @@ function StatBox({
   value,
   color,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   value: string;
   color?: string;

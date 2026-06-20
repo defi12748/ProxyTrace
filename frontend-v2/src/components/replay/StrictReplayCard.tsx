@@ -31,13 +31,13 @@ export function StrictReplayCard({ replay }: StrictReplayCardProps) {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <ShieldCheck size={16} style={{ color: isClean ? "var(--emerald)" : "var(--text-muted)" }} />
+          <ShieldCheck size={16} style={{ color: isClean ? "var(--green)" : "var(--text-muted)" }} />
           <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>
             Safe Replay
           </span>
         </div>
         {v.safety_guarantee !== undefined && (
-          <Badge color={v.safety_guarantee ? "emerald" : "rose"}>
+          <Badge color={v.safety_guarantee ? "green" : "rose"}>
             {v.safety_guarantee ? "Safe" : "Unsafe"}
           </Badge>
         )}
@@ -46,7 +46,7 @@ export function StrictReplayCard({ replay }: StrictReplayCardProps) {
       {/* Stats row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
         {[
-          { icon: <Percent size={13} />, label: "Determinism", value: rateLabel, accent: isClean ? "var(--emerald)" : "var(--amber)" },
+          { icon: <Percent size={13} />, label: "Determinism", value: rateLabel, accent: isClean ? "var(--green-text)" : "var(--amber-text)" },
           { icon: <Zap size={13} />, label: "Live Calls", value: String(v.live_call_count ?? "—") },
           { icon: <Lock size={13} />, label: "Blocked", value: String(v.side_effect_block_count ?? "—") },
         ].map(({ icon, label, value, accent }) => (

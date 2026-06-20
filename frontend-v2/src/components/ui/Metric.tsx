@@ -1,108 +1,71 @@
-import type { ReactNode, CSSProperties } from "react";
+import type { ReactNode } from "react";
 
 interface MetricProps {
   label: string;
-  value: string | number;
+  value: ReactNode;
+  subtitle?: string;
   icon?: ReactNode;
-  color?: "cyan" | "violet" | "emerald" | "amber" | "rose";
-  style?: CSSProperties;
+  iconBg?: string;
+  delta?: string;
+  deltaColor?: string;
 }
 
-const colorAccent: Record<string, string> = {
-  cyan:    "var(--cyan)",
-  violet:  "var(--violet)",
-  emerald: "var(--emerald)",
-  amber:   "var(--amber)",
-  rose:    "var(--rose)",
-};
-
-const colorDim: Record<string, string> = {
-  cyan:    "var(--cyan-dim)",
-  violet:  "var(--violet-dim)",
-  emerald: "var(--emerald-dim)",
-  amber:   "var(--amber-dim)",
-  rose:    "var(--rose-dim)",
-};
-
-export function Metric({ label, value, icon, color = "cyan", style }: MetricProps) {
-  const accent = colorAccent[color];
-  const dim = colorDim[color];
-
+/* Matches dotrack StatCard pattern exactly */
+export function Metric({ label, value, subtitle, icon, iconBg, delta, deltaColor }: MetricProps) {
   return (
     <div
       style={{
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border)",
+        padding: "16px",
+        background: "var(--bg-base)",
+        border: "1px solid var(--border-strong)",
         borderRadius: "var(--radius-lg)",
-        padding: "16px 18px",
         display: "flex",
         flexDirection: "column",
-        gap: "10px",
-        position: "relative",
-        overflow: "hidden",
-        transition: "border-color var(--transition)",
-        ...style,
+        justifyContent: "space-between",
+        gap: "8px",
       }}
     >
-      {/* top accent line */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "2px",
-          background: `linear-gradient(90deg, ${accent}, transparent)`,
-        }}
-      />
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <span
-          style={{
-            fontSize: "11px",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.07em",
-            color: "var(--text-muted)",
-          }}
-        >
-          {label}
-        </span>
+      {/* Top row: label + icon */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{ fontSize: "13px", fontWeight: 400, color: "var(--text-primary)", lineHeight: 1.4 }}>
+            {label}
+          </div>
+          {subtitle && (
+            <div style={{ fontSize: "13px", fontWeight: 400, color: "var(--text-primary)", lineHeight: 1.4 }}>
+              {subtitle}
+            </div>
+          )}
+        </div>
         {icon && (
-          <span
+          <div
             style={{
+              width: "36px",
+              height: "36px",
+              borderRadius: "var(--radius-md)",
+              background: iconBg ?? "var(--purple-dim)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: "28px",
-              height: "28px",
-              borderRadius: "var(--radius-sm)",
-              background: dim,
-              color: accent,
+              flexShrink: 0,
             }}
           >
             {icon}
-          </span>
+          </div>
         )}
       </div>
 
-      <span
-        style={{
-          fontSize: "28px",
-          fontWeight: 700,
-          letterSpacing: "-0.02em",
-          color: "var(--text-primary)",
-          lineHeight: 1,
-        }}
-      >
+      {/* Main value */}
+      <div style={{ fontSize: "24px", fontWeight: 600, color: "var(--text-secondary)" }}>
         {value}
-      </span>
+      </div>
+
+      {/* Delta row */}
+      {delta && (
+        <div style={{ fontSize: "12px", color: deltaColor ?? "var(--text-muted)" }}>
+          {delta}
+        </div>
+      )}
     </div>
   );
 }

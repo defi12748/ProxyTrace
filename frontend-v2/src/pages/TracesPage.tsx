@@ -1,31 +1,49 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Database, Play, RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { PageShell } from "../components/layout/PageShell";
 import { RunCard } from "../components/traces/RunCard";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
+import { SearchBar } from "../components/ui/SearchBar";
+import { SortDropdown } from "../components/ui/SortDropdown";
+import { Pagination } from "../components/ui/Pagination";
 import { EmptyState } from "../components/ui/EmptyState";
 import { showToast } from "../components/ui/Toast";
 import { ProxyTraceApi, getInitialApiBase } from "../api/client";
 import type { Run } from "../api/types";
 
+const SORT_OPTIONS = [
+  { id: "newest",  label: "Newest first",  description: "Most recent runs at the top" },
+  { id: "oldest",  label: "Oldest first",  description: "Earliest runs at the top" },
+  { id: "status",  label: "By status",     description: "Completed → Running → other" },
+  { id: "issue",   label: "By issue key",  description: "Alphabetical by Jira key" },
+];
+
+const PAGE_SIZE = 12;
+
 export function TracesPage() {
   const [apiBase] = useState(getInitialApiBase);
   const api = useMemo(() => new ProxyTraceApi(apiBase), [apiBase]);
+  const navigate = useNavigate();
 
   const [runs, setRuns] = useState<Run[]>([]);
   const [issueFilter, setIssueFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<string | null>(null);
   const [traceKey, setTraceKey] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setBusy("load");
     try {
       const q = issueFilter.trim()
-        ? `?jira_issue_key=${encodeURIComponent(issueFilter.trim())}&limit=50`
-        : "?limit=50";
+        ? `?jira_issue_key=${encodeURIComponent(issueFilter.trim())}&limit=100`
+        : "?limit=100";
       const res = await api.get<{ runs: Run[] }>(`/runs${q}`);
       setRuns(res.runs);
+      setPage(1);
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to load runs", "error");
     } finally {
@@ -51,14 +69,36 @@ export function TracesPage() {
     }
   }
 
+  /* Filter + sort + paginate client-side */
+  const filtered = runs.filter((r) => {
+    const q = search.toLowerCase();
+    if (!q) return true;
+    return (
+      r.jira_issue_key?.toLowerCase().includes(q) ||
+      r.run_id.toLowerCase().includes(q) ||
+      r.status.toLowerCase().includes(q)
+    );
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortKey === "oldest")  return new Date(a.started_at ?? 0).getTime() - new Date(b.started_at ?? 0).getTime();
+    if (sortKey === "status")  return a.status.localeCompare(b.status);
+    if (sortKey === "issue")   return (a.jira_issue_key ?? "").localeCompare(b.jira_issue_key ?? "");
+    return new Date(b.started_at ?? 0).getTime() - new Date(a.started_at ?? 0).getTime(); // newest default
+  });
+
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <PageShell
       title="Traces"
       subtitle="All recorded agent runs — browse, filter, and inspect"
       actions={
         <Button
-          variant="ghost"
-          icon={<RefreshCw size={14} />}
+          variant="outline"
+          size="sm"
+          icon={<RefreshCw size={13} />}
           loading={busy === "load"}
           onClick={() => void load()}
         >
@@ -66,28 +106,49 @@ export function TracesPage() {
         </Button>
       }
     >
-      {/* Toolbar */}
+      {/* Toolbar — matching dotrack filter toolbar layout */}
       <div
         style={{
           display: "flex",
           gap: "10px",
-          alignItems: "flex-end",
+          alignItems: "center",
           flexWrap: "wrap",
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border-strong)",
+          borderRadius: "var(--radius-lg)",
+          padding: "12px 16px",
+          boxShadow: "var(--shadow-sm)",
         }}
       >
-        <div style={{ flex: 1, minWidth: "200px", maxWidth: "320px" }}>
-          <Input
-            label="Filter by issue key"
-            id="traces-filter"
-            value={issueFilter}
-            onChange={(e) => setIssueFilter(e.target.value.toUpperCase())}
-            placeholder="SCRUM-1"
+        {/* Left: filter by issue + sort */}
+        <div style={{ flex: 1, display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ minWidth: "200px", maxWidth: "260px" }}>
+            <Input
+              id="traces-filter"
+              value={issueFilter}
+              onChange={(e) => setIssueFilter(e.target.value.toUpperCase())}
+              placeholder="Filter by issue key…"
+              style={{ textTransform: "uppercase" }}
+            />
+          </div>
+
+          <SearchBar value={search} onChange={setSearch} placeholder="Search runs…" />
+
+          <SortDropdown
+            options={SORT_OPTIONS}
+            value={sortKey}
+            onChange={setSortKey}
+            label="Sort by"
           />
         </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <div style={{ width: "200px" }}>
+
+        {/* Right: new trace CTA */}
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
+          <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 600, whiteSpace: "nowrap" }}>
+            NEW TRACE
+          </div>
+          <div style={{ width: "160px" }}>
             <Input
-              label="New trace"
               id="traces-new-key"
               value={traceKey}
               onChange={(e) => setTraceKey(e.target.value.toUpperCase())}
@@ -97,10 +158,10 @@ export function TracesPage() {
           </div>
           <Button
             variant="primary"
-            icon={<Play size={14} />}
+            size="md"
+            icon={<Play size={13} />}
             loading={busy === "trace"}
             onClick={() => void startTrace()}
-            style={{ marginTop: "17px" }}
           >
             Trace Issue
           </Button>
@@ -108,31 +169,46 @@ export function TracesPage() {
       </div>
 
       {/* Run grid */}
-      {runs.length === 0 && busy !== "load" ? (
+      {paged.length === 0 && busy !== "load" ? (
         <EmptyState
           icon={<Database size={22} />}
           title="No runs found"
-          description={issueFilter ? `No traces matching "${issueFilter}"` : "Record your first trace using the input above."}
+          description={
+            search || issueFilter
+              ? `No traces matching your filters`
+              : "Record your first trace using the input above."
+          }
         />
       ) : (
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
             gap: "10px",
           }}
         >
-          {runs.map((run) => (
-            <RunCard key={run.run_id} run={run} />
+          {paged.map((run) => (
+            <RunCard
+              key={run.run_id}
+              run={run}
+              onClick={() => navigate(`/traces/${run.run_id}`)}
+            />
           ))}
         </div>
       )}
 
-      {/* Count */}
-      {runs.length > 0 && (
-        <div style={{ fontSize: "12px", color: "var(--text-muted)", textAlign: "right" }}>
-          Showing {runs.length} run{runs.length !== 1 ? "s" : ""}
-          {issueFilter && ` for "${issueFilter}"`}
+      {/* Footer: count + pagination */}
+      {sorted.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+            Showing {paged.length} of {sorted.length} run{sorted.length !== 1 ? "s" : ""}
+            {issueFilter && ` for "${issueFilter}"`}
+          </span>
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </PageShell>

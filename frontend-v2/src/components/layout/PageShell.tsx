@@ -9,37 +9,14 @@ interface PageShellProps {
 
 export function PageShell({ title, subtitle, actions, children }: PageShellProps) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-      {/* Page header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: "16px",
-          paddingBottom: "16px",
-          borderBottom: "1px solid var(--border)",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <h1
-            style={{
-              fontSize: "20px",
-              fontWeight: 700,
-              letterSpacing: "-0.02em",
-              color: "var(--text-primary)",
-            }}
-          >
-            {title}
-          </h1>
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px", width: "100%" }}>
+
+      {/* Page header — identical to dotrack's page headers */}
+      <div className="page-header">
+        <div>
+          <h1>{title}</h1>
           {subtitle && (
-            <p
-              style={{
-                fontSize: "13px",
-                color: "var(--text-muted)",
-                margin: 0,
-              }}
-            >
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "3px" }}>
               {subtitle}
             </p>
           )}
@@ -51,8 +28,10 @@ export function PageShell({ title, subtitle, actions, children }: PageShellProps
         )}
       </div>
 
-      {/* Content */}
-      {children}
+      {/* Page content */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        {children}
+      </div>
     </div>
   );
 }

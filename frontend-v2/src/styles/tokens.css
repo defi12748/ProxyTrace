@@ -1,75 +1,84 @@
 /* ============================================================
-   ProxyTrace v2 — Design Tokens
-   Deep Midnight Dark Mode
+   ProxyTrace v2 — Design Tokens (DoTrack Theme)
+   Colors, spacing, typography — all matching dotrack-front
    ============================================================ */
 
 :root {
-  /* --- Background layers (darkest → lightest) --- */
-  --bg-base:        #070b12;   /* page background */
-  --bg-surface:     #0d1117;   /* card / panel */
-  --bg-raised:      #111827;   /* inner input, code bg */
-  --bg-overlay:     #1a2235;   /* hover, selected state bg */
-  --bg-accent:      #162032;   /* subtle accent tinted surface */
+  /* ---- Palette ---- */
+  --bg-base:       #F5F6F8;   /* page / sidebar background */
+  --bg-surface:    #FFFFFF;   /* cards, inputs */
+  --bg-raised:     #EEEFF3;   /* hover tint, nested sections */
+  --bg-overlay:    #E8E9EE;   /* expanded rows, dropdown overlays */
 
-  /* --- Borders --- */
-  --border:         rgba(255, 255, 255, 0.07);
-  --border-subtle:  rgba(255, 255, 255, 0.04);
-  --border-active:  rgba(99, 179, 237, 0.45);
-  --border-violet:  rgba(167, 139, 250, 0.45);
+  --border:        #DEE0E7;   /* default border */
+  --border-strong: #B3B4C6;   /* card border, active item border */
 
-  /* --- Accent colors --- */
-  --cyan:           #63b3ed;
-  --cyan-dim:       rgba(99, 179, 237, 0.15);
-  --cyan-glow:      rgba(99, 179, 237, 0.25);
-  --violet:         #a78bfa;
-  --violet-dim:     rgba(167, 139, 250, 0.15);
-  --emerald:        #34d399;
-  --emerald-dim:    rgba(52, 211, 153, 0.15);
-  --amber:          #fbbf24;
-  --amber-dim:      rgba(251, 191, 36, 0.15);
-  --rose:           #f87171;
-  --rose-dim:       rgba(248, 113, 113, 0.15);
+  /* Text */
+  --text-primary:   #302F37;
+  --text-secondary: #626073;
+  --text-muted:     #A09FB5;
+  --text-disabled:  #D3B3FF;
 
-  /* --- Text --- */
-  --text-primary:   #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-muted:     #475569;
-  --text-accent:    #63b3ed;
+  /* Purple (primary accent — matching dotrack button_active) */
+  --purple:        #B882FE;
+  --purple-hover:  #D3B3FF;
+  --purple-dim:    #F2E8FF;
+  --purple-text:   #350566;   /* text on purple bg / active nav text */
+  --purple-dark:   #571B7E;
+  --purple-deep:   #4E387E;
 
-  /* --- Typography --- */
-  --font-ui:    "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono:  "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  /* Semantic colours */
+  --green:         #22C55E;
+  --green-dim:     #dcfce7;
+  --green-text:    #15803d;
+  --green-dark:    #17654f;
 
-  /* --- Spacing scale --- */
-  --space-1:   4px;
-  --space-2:   8px;
-  --space-3:   12px;
-  --space-4:   16px;
-  --space-5:   20px;
-  --space-6:   24px;
-  --space-8:   32px;
-  --space-10:  40px;
-  --space-12:  48px;
+  --blue:          #3b82f6;
+  --blue-dim:      #dbeafe;
+  --blue-text:     #1d58d8;
 
-  /* --- Border radius --- */
-  --radius-sm:  6px;
-  --radius-md:  10px;
-  --radius-lg:  14px;
-  --radius-xl:  20px;
+  --amber:         #f59e0b;
+  --amber-dim:     #fef3c7;
+  --amber-text:    #92400e;
+
+  --rose:          #ef4444;
+  --rose-dim:      #fee2e2;
+  --rose-text:     #991b1b;
+
+  --indigo:        #6366f1;
+  --indigo-dim:    #e0e7ff;
+  --indigo-text:   #3730a3;
+
+  /* Aliases kept for code compatibility */
+  --cyan:          var(--purple);
+  --cyan-dim:      var(--purple-dim);
+  --violet:        var(--purple-dark);
+  --violet-dim:    var(--purple-dim);
+  --emerald:       var(--green);
+  --emerald-dim:   var(--green-dim);
+
+  /* ---- Typography ---- */
+  --font-ui:   "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+
+  /* ---- Radius ---- */
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   12px;
   --radius-full: 9999px;
 
-  /* --- Shadows --- */
-  --shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-md:  0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-lg:  0 20px 48px rgba(0, 0, 0, 0.6);
-  --shadow-cyan: 0 0 20px rgba(99, 179, 237, 0.15);
-  --shadow-glow: 0 0 40px rgba(99, 179, 237, 0.08);
+  /* ---- Shadows ---- */
+  --shadow-sm:  0 1px 2px rgba(48,47,55,0.06);
+  --shadow-md:  0 2px 8px rgba(48,47,55,0.08), 0 1px 2px rgba(48,47,55,0.04);
+  --shadow-lg:  0 4px 16px rgba(48,47,55,0.10), 0 2px 4px rgba(48,47,55,0.06);
+  --shadow-input: inset 0px 0px 6.5px 0px rgba(179,180,198,0.20);
 
-  /* --- Sidebar --- */
-  --sidebar-width: 220px;
-  --topbar-height: 56px;
+  /* ---- Sidebar ---- */
+  --sidebar-width:          256px;
+  --sidebar-collapsed-width: 64px;
 
-  /* --- Transitions --- */
-  --transition: 150ms ease;
-  --transition-slow: 300ms ease;
+  /* ---- Transitions ---- */
+  --transition:       0.15s ease;
+  --transition-slow:  0.3s ease;
 }

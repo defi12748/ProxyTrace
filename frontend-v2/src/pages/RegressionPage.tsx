@@ -88,9 +88,9 @@ export function RegressionPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px" }}>
         {[
           { label: "Total Tests", value: regressions.length, color: "var(--text-primary)" },
-          { label: "Passing", value: totalPass, color: "var(--emerald)" },
-          { label: "Failing", value: totalFail, color: totalFail > 0 ? "var(--rose)" : "var(--text-muted)" },
-          { label: "Pass Rate", value: passRate !== null ? `${passRate}%` : "—", color: passRate !== null && passRate >= 80 ? "var(--emerald)" : "var(--amber)" },
+          { label: "Passing", value: totalPass, color: "var(--green-text)" },
+          { label: "Failing", value: totalFail, color: totalFail > 0 ? "var(--rose-text)" : "var(--text-muted)" },
+          { label: "Pass Rate", value: passRate !== null ? `${passRate}%` : "—", color: passRate !== null && passRate >= 80 ? "var(--green-text)" : "var(--amber-text)" },
         ].map(({ label, value, color }) => (
           <div
             key={label}
@@ -115,8 +115,8 @@ export function RegressionPage() {
           style={{
             padding: "14px 18px",
             borderRadius: "var(--radius-lg)",
-            border: `1px solid ${runResult.failed === 0 ? "rgba(52,211,153,0.35)" : "rgba(248,113,113,0.35)"}`,
-            background: runResult.failed === 0 ? "rgba(52,211,153,0.08)" : "rgba(248,113,113,0.08)",
+            border: `1px solid ${runResult.failed === 0 ? "#86efac" : "#fca5a5"}`,
+            background: runResult.failed === 0 ? "var(--green-dim)" : "var(--rose-dim)",
             display: "flex",
             alignItems: "center",
             gap: "12px",
@@ -124,12 +124,12 @@ export function RegressionPage() {
           }}
         >
           {runResult.failed === 0 ? (
-            <CheckCircle2 size={20} style={{ color: "var(--emerald)", flexShrink: 0 }} />
+            <CheckCircle2 size={20} style={{ color: "var(--green-text)", flexShrink: 0 }} />
           ) : (
-            <XCircle size={20} style={{ color: "var(--rose)", flexShrink: 0 }} />
+            <XCircle size={20} style={{ color: "var(--rose-text)", flexShrink: 0 }} />
           )}
           <div>
-            <div style={{ fontSize: "14px", fontWeight: 700, color: runResult.failed === 0 ? "var(--emerald)" : "var(--rose)" }}>
+            <div style={{ fontSize: "14px", fontWeight: 700, color: runResult.failed === 0 ? "var(--green-text)" : "var(--rose-text)" }}>
               {runResult.failed === 0 ? "All tests passed" : `${runResult.failed} test${runResult.failed !== 1 ? "s" : ""} failed`}
             </div>
             <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
@@ -138,12 +138,12 @@ export function RegressionPage() {
           </div>
 
           {/* Progress bar */}
-          <div style={{ flex: 1, height: "6px", background: "var(--bg-raised)", borderRadius: "var(--radius-full)", overflow: "hidden", marginLeft: "auto" }}>
+          <div style={{ flex: 1, height: "6px", background: "var(--border)", borderRadius: "var(--radius-full)", overflow: "hidden", marginLeft: "auto" }}>
             <div
               style={{
                 height: "100%",
                 width: `${(runResult.passed / Math.max(runResult.total, 1)) * 100}%`,
-                background: runResult.failed === 0 ? "var(--emerald)" : "var(--amber)",
+                background: runResult.failed === 0 ? "var(--green-text)" : "var(--amber-text)",
                 borderRadius: "var(--radius-full)",
                 transition: "width 600ms ease",
               }}
@@ -159,7 +159,7 @@ export function RegressionPage() {
       <Card>
         <CardHeader>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <TestTube2 size={15} style={{ color: "var(--violet)" }} />
+            <TestTube2 size={15} style={{ color: "var(--purple-text)" }} />
             <span style={{ fontSize: "14px", fontWeight: 600 }}>Test Pack</span>
           </div>
           <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
@@ -216,14 +216,15 @@ export function RegressionPage() {
                       padding: "11px 16px",
                       width: "100%",
                       textAlign: "left",
+                    border: "none",
                       borderBottom: "1px solid var(--border)",
-                      background: expanded ? "var(--bg-overlay)" : "transparent",
+                      background: expanded ? "var(--bg-raised)" : "transparent",
                       cursor: "pointer",
                       transition: "background var(--transition)",
                       alignItems: "center",
                     }}
                     onMouseEnter={(e) => {
-                      if (!expanded) e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+                      if (!expanded) e.currentTarget.style.background = "var(--bg-raised)";
                     }}
                     onMouseLeave={(e) => {
                       if (!expanded) e.currentTarget.style.background = "transparent";
@@ -235,7 +236,7 @@ export function RegressionPage() {
                     <Link
                       to={`/traces/${reg.run_id}`}
                       onClick={(e) => e.stopPropagation()}
-                      style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--cyan)", textDecoration: "none" }}
+                      style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--purple-text)", textDecoration: "none" }}
                     >
                       {compactId(reg.run_id)}
                     </Link>
@@ -245,16 +246,16 @@ export function RegressionPage() {
 
                     {/* Pass count */}
                     <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                      <CheckCircle2 size={12} style={{ color: "var(--emerald)" }} />
-                      <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--emerald)" }}>
+                      <CheckCircle2 size={12} style={{ color: "var(--green-text)" }} />
+                      <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--green-text)" }}>
                         {reg.pass_count}
                       </span>
                     </span>
 
                     {/* Fail count */}
                     <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                      {hasFailures && <XCircle size={12} style={{ color: "var(--rose)" }} />}
-                      <span style={{ fontSize: "13px", fontWeight: 700, color: hasFailures ? "var(--rose)" : "var(--text-muted)" }}>
+                      {hasFailures && <XCircle size={12} style={{ color: "var(--rose-text)" }} />}
+                      <span style={{ fontSize: "13px", fontWeight: 700, color: hasFailures ? "var(--rose-text)" : "var(--text-muted)" }}>
                         {reg.fail_count}
                       </span>
                     </span>
@@ -272,7 +273,7 @@ export function RegressionPage() {
                     <div
                       style={{
                         padding: "14px 16px",
-                        background: "var(--bg-overlay)",
+                        background: "var(--bg-raised)",
                         borderBottom: "1px solid var(--border)",
                         animation: "fadeIn 150ms ease forwards",
                       }}

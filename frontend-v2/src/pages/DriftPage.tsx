@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  CheckCircle2,
-  RefreshCw,
-  ShieldAlert,
-} from "lucide-react";
+import { CheckCircle2, RefreshCw, ShieldAlert } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { Button } from "../components/ui/Button";
 import { Badge } from "../components/ui/Badge";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
+import { SearchBar } from "../components/ui/SearchBar";
+import { Pagination } from "../components/ui/Pagination";
 import { showToast } from "../components/ui/Toast";
 import { ProxyTraceApi, getInitialApiBase, formatDate, compactId } from "../api/client";
 import type { Warning } from "../api/types";
+
+const PAGE_SIZE = 15;
 
 type RunRef = { run_id: string; jira_issue_key: string | null };
 type DriftRow = Warning & { run?: RunRef };
@@ -23,7 +23,9 @@ export function DriftPage() {
 
   const [rows, setRows] = useState<DriftRow[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -65,9 +67,9 @@ export function DriftPage() {
     descriptor: rows.filter((r) => r.warning_type.includes("descriptor")).length,
   };
 
-  function driftColor(type: string): "amber" | "rose" | "violet" {
+  function driftColor(type: string): "amber" | "rose" | "indigo" {
     if (type.includes("output")) return "rose";
-    if (type.includes("descriptor")) return "violet";
+    if (type.includes("descriptor")) return "indigo";
     return "amber";
   }
 
@@ -90,9 +92,9 @@ export function DriftPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px" }}>
         {[
           { label: "Total Warnings", value: rows.length, color: "var(--text-primary)" },
-          { label: "Input Schema Drift", value: driftKinds.input, color: "var(--amber)" },
-          { label: "Output Schema Drift", value: driftKinds.output, color: "var(--rose)" },
-          { label: "Descriptor Drift", value: driftKinds.descriptor, color: "var(--violet)" },
+          { label: "Input Schema Drift", value: driftKinds.input, color: "var(--amber-text)" },
+          { label: "Output Schema Drift", value: driftKinds.output, color: "var(--rose-text)" },
+          { label: "Descriptor Drift", value: driftKinds.descriptor, color: "var(--purple-text)" },
         ].map(({ label, value, color }) => (
           <div
             key={label}
@@ -118,9 +120,10 @@ export function DriftPage() {
             <ShieldAlert size={15} style={{ color: "var(--amber)" }} />
             <span style={{ fontSize: "14px", fontWeight: 600 }}>Drift Warnings</span>
           </div>
-          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-            Click a row to expand details
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search warnings…" />
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Click a row to expand</span>
+          </div>
         </CardHeader>
 
         {rows.length === 0 && !busy ? (
@@ -146,6 +149,7 @@ export function DriftPage() {
                 textTransform: "uppercase",
                 letterSpacing: "0.07em",
                 color: "var(--text-muted)",
+                background: "var(--bg-base)",
               }}
             >
               <span>Warning Type</span>
@@ -156,7 +160,13 @@ export function DriftPage() {
               <span>Surfaced</span>
             </div>
 
-            {rows.map((row) => {
+            {rows
+              .filter((r) => {
+                const q = search.toLowerCase();
+                return !q || r.warning_type.includes(q) || r.run_id.includes(q);
+              })
+              .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+              .map((row) => {
               const expanded = expandedId === row.warning_id;
               const color = driftColor(row.warning_type);
               return (
@@ -172,25 +182,26 @@ export function DriftPage() {
                       padding: "10px 16px",
                       width: "100%",
                       textAlign: "left",
+                      border: "none",
                       borderBottom: "1px solid var(--border)",
-                      background: expanded ? "var(--bg-overlay)" : "transparent",
+                      background: expanded ? "var(--bg-raised)" : "transparent",
                       cursor: "pointer",
                       transition: "background var(--transition)",
                       alignItems: "center",
                     }}
                     onMouseEnter={(e) => {
-                      if (!expanded) e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+                      if (!expanded) e.currentTarget.style.background = "var(--bg-raised)";
                     }}
                     onMouseLeave={(e) => {
                       if (!expanded) e.currentTarget.style.background = "transparent";
                     }}
                   >
                     <Badge color={color}>{row.warning_type.replace(/_/g, " ")}</Badge>
-                    <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--cyan)" }}>
+                    <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--purple-text)" }}>
                       <Link
                         to={`/traces/${row.run_id}`}
                         onClick={(e) => e.stopPropagation()}
-                        style={{ color: "var(--cyan)", textDecoration: "none" }}
+                        style={{ color: "var(--purple-text)", textDecoration: "none" }}
                       >
                         {compactId(row.run_id)}
                       </Link>
@@ -258,6 +269,16 @@ export function DriftPage() {
               );
             })}
           </div>
+        )}
+        {/* Pagination */}
+        {rows.length > PAGE_SIZE && (
+          <CardBody style={{ paddingTop: 0 }}>
+            <Pagination
+              currentPage={page}
+              totalPages={Math.ceil(rows.length / PAGE_SIZE)}
+              onPageChange={setPage}
+            />
+          </CardBody>
         )}
       </Card>
     </PageShell>

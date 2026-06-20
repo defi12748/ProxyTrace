@@ -1,99 +1,91 @@
 import { useState } from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, ChevronDown, ChevronUp } from "lucide-react";
+import type { JsonValue } from "../../api/types";
 
 interface CodeBlockProps {
-  title?: string;
-  value: unknown;
+  value: JsonValue;
   collapsed?: boolean;
   maxHeight?: string;
 }
 
-export function CodeBlock({ title, value, collapsed = true, maxHeight = "240px" }: CodeBlockProps) {
-  const [open, setOpen] = useState(!collapsed);
+export function CodeBlock({ value, collapsed = true, maxHeight = "200px" }: CodeBlockProps) {
+  const [isCollapsed, setIsCollapsed] = useState(collapsed);
   const [copied, setCopied] = useState(false);
-  const text = JSON.stringify(value ?? {}, null, 2);
 
-  async function copy() {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  const text = JSON.stringify(value, null, 2);
+
+  function copy() {
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
   }
 
   return (
     <div
       style={{
-        background: "var(--bg-raised)",
         border: "1px solid var(--border)",
         borderRadius: "var(--radius-md)",
         overflow: "hidden",
+        fontSize: "12px",
+        fontFamily: "var(--font-mono)",
+        background: "var(--bg-base)",
       }}
     >
-      {title && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "8px 12px",
-            borderBottom: open ? "1px solid var(--border)" : "none",
-            cursor: "pointer",
-          }}
-          onClick={() => setOpen((o) => !o)}
-        >
-          <span
-            style={{
-              fontSize: "12px",
-              fontWeight: 600,
-              color: "var(--text-secondary)",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "10px",
-                transition: "transform var(--transition)",
-                transform: open ? "rotate(90deg)" : "rotate(0deg)",
-                display: "inline-block",
-              }}
-            >
-              ▶
-            </span>
-            {title}
-          </span>
+      {/* Toolbar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "6px 10px",
+          background: "var(--bg-raised)",
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        <span style={{ fontSize: "10px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)" }}>
+          JSON
+        </span>
+        <div style={{ display: "flex", gap: "4px" }}>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              void copy();
-            }}
-            title="Copy"
+            onClick={copy}
             style={{
-              background: "transparent",
-              border: "none",
-              color: copied ? "var(--emerald)" : "var(--text-muted)",
+              display: "flex", alignItems: "center", gap: "4px",
+              padding: "3px 8px", borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border)",
+              background: "var(--bg-surface)",
+              fontSize: "10px", fontFamily: "var(--font-ui)",
+              color: copied ? "var(--green-text)" : "var(--text-secondary)",
               cursor: "pointer",
-              padding: "2px 4px",
-              borderRadius: "var(--radius-sm)",
-              display: "flex",
-              alignItems: "center",
-              transition: "color var(--transition)",
             }}
           >
-            {copied ? <Check size={13} /> : <Copy size={13} />}
+            <Copy size={10} />
+            {copied ? "Copied!" : "Copy"}
+          </button>
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            style={{
+              display: "flex", alignItems: "center",
+              padding: "3px 6px", borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border)",
+              background: "var(--bg-surface)",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+            }}
+          >
+            {isCollapsed ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
           </button>
         </div>
-      )}
-      {(!title || open) && (
+      </div>
+
+      {/* Content */}
+      {!isCollapsed && (
         <pre
           style={{
-            margin: 0,
-            padding: "12px",
+            margin: 0, padding: "12px",
             maxHeight,
-            overflow: "auto",
-            fontSize: "12px",
-            fontFamily: "var(--font-mono)",
-            color: "var(--text-secondary)",
+            overflowY: "auto",
+            color: "var(--text-primary)",
             lineHeight: 1.6,
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",

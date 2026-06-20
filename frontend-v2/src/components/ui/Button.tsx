@@ -1,6 +1,6 @@
 import type { ReactNode, ButtonHTMLAttributes, CSSProperties } from "react";
 
-type Variant = "primary" | "ghost" | "danger" | "success";
+type Variant = "primary" | "ghost" | "danger" | "success" | "outline";
 type Size = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -12,31 +12,47 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyle: Record<Variant, CSSProperties> = {
+  /* matches dotrack CustomButton primary */
   primary: {
-    background: "linear-gradient(135deg, rgba(99,179,237,0.2), rgba(99,179,237,0.1))",
-    borderColor: "rgba(99,179,237,0.4)",
-    color: "var(--cyan)",
+    background: "var(--purple)",
+    color: "var(--purple-text)",
+    border: "1px solid transparent",
   },
+  /* matches dotrack ghost nav button */
   ghost: {
     background: "transparent",
-    borderColor: "var(--border)",
     color: "var(--text-secondary)",
+    border: "1px solid transparent",
+  },
+  /* matches dotrack outline button in header */
+  outline: {
+    background: "var(--bg-base)",
+    color: "var(--text-secondary)",
+    border: "1px solid var(--text-secondary)",
   },
   danger: {
-    background: "rgba(248,113,113,0.12)",
-    borderColor: "rgba(248,113,113,0.35)",
-    color: "var(--rose)",
+    background: "var(--rose-dim)",
+    color: "var(--rose-text)",
+    border: "1px solid #fca5a5",
   },
   success: {
-    background: "rgba(52,211,153,0.12)",
-    borderColor: "rgba(52,211,153,0.35)",
-    color: "var(--emerald)",
+    background: "var(--green-dim)",
+    color: "var(--green-text)",
+    border: "1px solid #86efac",
   },
 };
 
+const variantHover: Record<Variant, CSSProperties> = {
+  primary: { background: "var(--purple-hover)" },
+  ghost:   { background: "rgba(255,255,255,0.6)", borderColor: "var(--border-strong)" },
+  outline: { color: "var(--text-primary)", borderColor: "var(--text-primary)" },
+  danger:  { background: "#fecaca" },
+  success: { background: "#bbf7d0" },
+};
+
 const sizeStyle: Record<Size, CSSProperties> = {
-  sm: { padding: "5px 10px", fontSize: "12px", minHeight: "28px", gap: "5px" },
-  md: { padding: "7px 14px", fontSize: "13px", minHeight: "34px", gap: "6px" },
+  sm: { padding: "5px 10px",  fontSize: "12px", minHeight: "28px", gap: "5px" },
+  md: { padding: "7px 14px",  fontSize: "13px", minHeight: "34px", gap: "6px" },
   lg: { padding: "10px 20px", fontSize: "14px", minHeight: "40px", gap: "8px" },
 };
 
@@ -48,26 +64,40 @@ export function Button({
   children,
   disabled,
   style,
+  onMouseEnter,
+  onMouseLeave,
   ...rest
 }: ButtonProps) {
+  const base = variantStyle[variant];
+  const hover = variantHover[variant];
+
   return (
     <button
       {...rest}
       disabled={disabled || loading}
+      onMouseEnter={(e) => {
+        if (!disabled && !loading) {
+          Object.assign(e.currentTarget.style, hover);
+        }
+        onMouseEnter?.(e);
+      }}
+      onMouseLeave={(e) => {
+        Object.assign(e.currentTarget.style, base);
+        onMouseLeave?.(e);
+      }}
       style={{
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
         fontFamily: "var(--font-ui)",
-        fontWeight: 500,
+        fontWeight: 600,
         borderRadius: "var(--radius-md)",
-        border: "1px solid",
-        cursor: "pointer",
+        cursor: disabled || loading ? "not-allowed" : "pointer",
         transition: "all var(--transition)",
         whiteSpace: "nowrap",
-        letterSpacing: "0.01em",
+        letterSpacing: "0em",
         opacity: disabled || loading ? 0.5 : 1,
-        ...variantStyle[variant],
+        ...base,
         ...sizeStyle[size],
         ...style,
       }}

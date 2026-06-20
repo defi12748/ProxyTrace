@@ -1,88 +1,76 @@
-import { useEffect, useState } from "react";
-import { CheckCircle, AlertCircle, Info } from "lucide-react";
+import { createRoot } from "react-dom/client";
+import { CheckCircle2, XCircle, AlertTriangle, Info } from "lucide-react";
 
-type ToastKind = "success" | "error" | "info";
+type ToastType = "success" | "error" | "warning" | "info";
 
-interface ToastItem {
-  id: number;
-  message: string;
-  kind: ToastKind;
-}
-
-let _setToast: ((t: ToastItem | null) => void) | null = null;
-let _counter = 0;
-
-export function showToast(message: string, kind: ToastKind = "info") {
-  _setToast?.({ id: ++_counter, message, kind });
-}
-
-const kindColor: Record<ToastKind, string> = {
-  success: "var(--emerald)",
-  error:   "var(--rose)",
-  info:    "var(--cyan)",
+const toastStyles: Record<ToastType, { bg: string; border: string; color: string }> = {
+  success: { bg: "var(--green-dim)",  border: "#86efac", color: "var(--green-text)" },
+  error:   { bg: "var(--rose-dim)",   border: "#fca5a5", color: "var(--rose-text)" },
+  warning: { bg: "var(--amber-dim)",  border: "#fcd34d", color: "var(--amber-text)" },
+  info:    { bg: "var(--blue-dim)",   border: "#93c5fd", color: "var(--blue-text)" },
 };
 
-const kindBg: Record<ToastKind, string> = {
-  success: "rgba(52,211,153,0.1)",
-  error:   "rgba(248,113,113,0.1)",
-  info:    "rgba(99,179,237,0.1)",
-};
+const ICONS = { success: CheckCircle2, error: XCircle, warning: AlertTriangle, info: Info };
 
-const kindIcon: Record<ToastKind, typeof CheckCircle> = {
-  success: CheckCircle,
-  error:   AlertCircle,
-  info:    Info,
-};
-
-export function ToastContainer() {
-  const [toast, setToast] = useState<ToastItem | null>(null);
-
-  useEffect(() => {
-    _setToast = setToast;
-    return () => { _setToast = null; };
-  }, []);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3500);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  if (!toast) return null;
-
-  const Icon = kindIcon[toast.kind];
-  const color = kindColor[toast.kind];
-  const bg = kindBg[toast.kind];
+function ToastItem({ message, type = "info" }: { message: string; type?: ToastType }) {
+  const { bg, border, color } = toastStyles[type];
+  const Icon = ICONS[type];
 
   return (
     <div
       style={{
-        position: "fixed",
-        bottom: "24px",
-        right: "24px",
-        zIndex: 9999,
-        animation: "toastSlideIn 200ms ease forwards",
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        padding: "12px 16px",
+        background: bg,
+        border: `1px solid ${border}`,
+        borderRadius: "var(--radius-lg)",
+        boxShadow: "var(--shadow-lg)",
+        maxWidth: "380px",
+        animation: "slideIn 200ms ease forwards",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          padding: "12px 16px",
-          background: bg,
-          border: `1px solid ${color}44`,
-          borderRadius: "var(--radius-lg)",
-          boxShadow: `0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px ${color}22`,
-          backdropFilter: "blur(12px)",
-          maxWidth: "380px",
-        }}
-      >
-        <Icon size={16} style={{ color, flexShrink: 0 }} />
-        <span style={{ fontSize: "13px", color: "var(--text-primary)", lineHeight: 1.4 }}>
-          {toast.message}
-        </span>
-      </div>
+      <Icon size={16} style={{ color, flexShrink: 0 }} />
+      <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--text-primary)", flex: 1 }}>
+        {message}
+      </span>
     </div>
   );
+}
+
+/* Container rendered at app root */
+let _container: HTMLElement | null = null;
+function getContainer() {
+  if (!_container) {
+    _container = document.createElement("div");
+    Object.assign(_container.style, {
+      position: "fixed",
+      bottom: "24px",
+      right: "24px",
+      zIndex: "9999",
+      display: "flex",
+      flexDirection: "column",
+      gap: "8px",
+    });
+    document.body.appendChild(_container);
+  }
+  return _container;
+}
+
+export function showToast(message: string, type: ToastType = "info", duration = 3500) {
+  const container = getContainer();
+  const slot = document.createElement("div");
+  container.appendChild(slot);
+  const root = createRoot(slot);
+  root.render(<ToastItem message={message} type={type} />);
+  setTimeout(() => {
+    root.unmount();
+    slot.remove();
+  }, duration);
+}
+
+/* Convenience wrapper for App.tsx */
+export function ToastContainer() {
+  return null; // container is managed imperatively above
 }

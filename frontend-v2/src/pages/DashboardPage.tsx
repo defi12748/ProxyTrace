@@ -18,10 +18,12 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { showToast } from "../components/ui/Toast";
 import { ProxyTraceApi, getInitialApiBase, formatDate } from "../api/client";
 import type { Run, RegressionItem, Warning } from "../api/types";
+import { useNavigate } from "react-router-dom";
 
 export function DashboardPage() {
   const [apiBase] = useState(getInitialApiBase);
   const api = useMemo(() => new ProxyTraceApi(apiBase), [apiBase]);
+  const navigate = useNavigate();
 
   const [runs, setRuns] = useState<Run[]>([]);
   const [regressions, setRegressions] = useState<RegressionItem[]>([]);
@@ -49,7 +51,6 @@ export function DashboardPage() {
       setRegressions(regRes.regressions);
       setBackendOk(health?.status === "ok");
 
-      // Gather warnings from recent runs
       const warningResps = await Promise.all(
         runRes.runs.slice(0, 5).map((r) =>
           api
@@ -89,8 +90,9 @@ export function DashboardPage() {
       subtitle="Live overview of your AI agent observability system"
       actions={
         <Button
-          variant="ghost"
-          icon={<RefreshCw size={14} />}
+          variant="outline"
+          size="sm"
+          icon={<RefreshCw size={13} />}
           loading={busy === "refresh"}
           onClick={() => void refresh()}
         >
@@ -98,55 +100,72 @@ export function DashboardPage() {
         </Button>
       }
     >
-      {/* KPI metrics */}
+      {/* KPI metrics — matches dotrack StatsBoxes grid */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-          gap: "12px",
+          gap: "16px",
         }}
       >
         <Metric
-          label="Total Runs"
+          label="Total"
+          subtitle="Runs"
           value={runs.length}
-          icon={<Database size={14} />}
-          color="cyan"
+          icon={<Database size={18} style={{ color: "#172A54" }} />}
+          iconBg="#BFD3FE"
+          delta={`Last ${runs.length} recorded`}
+          deltaColor="var(--blue-text)"
         />
         <Metric
-          label="Drift Warnings"
+          label="Drift"
+          subtitle="Warnings"
           value={driftCount}
-          icon={<AlertTriangle size={14} />}
-          color={driftCount > 0 ? "amber" : "emerald"}
+          icon={<AlertTriangle size={18} style={{ color: "#92400e" }} />}
+          iconBg="var(--amber-dim)"
+          delta={driftCount > 0 ? "Schema violations found" : "All contracts OK"}
+          deltaColor={driftCount > 0 ? "var(--amber-text)" : "var(--green-text)"}
         />
         <Metric
-          label="Regression Tests"
+          label="Regression"
+          subtitle="Tests"
           value={regressions.length}
-          icon={<BadgeCheck size={14} />}
-          color="violet"
+          icon={<BadgeCheck size={18} style={{ color: "var(--purple-text)" }} />}
+          iconBg="var(--purple-dim)"
+          delta={`${passCount} passing`}
+          deltaColor="var(--green-text)"
         />
         <Metric
-          label="Pass Rate"
+          label="Pass"
+          subtitle="Rate"
           value={passRate !== null ? `${passRate}%` : "—"}
-          icon={<ShieldCheck size={14} />}
-          color={passRate !== null && passRate >= 80 ? "emerald" : "amber"}
+          icon={<ShieldCheck size={18} style={{ color: "var(--green-text)" }} />}
+          iconBg="var(--green-dim)"
+          delta={passRate !== null && passRate >= 80 ? "Above threshold" : "Needs attention"}
+          deltaColor={passRate !== null && passRate >= 80 ? "var(--green-text)" : "var(--amber-text)"}
         />
         <Metric
           label="Backend"
+          subtitle="Status"
           value={backendOk === null ? "…" : backendOk ? "Online" : "Offline"}
-          icon={<Activity size={14} />}
-          color={backendOk ? "emerald" : "rose"}
+          icon={<Activity size={18} style={{ color: backendOk ? "var(--green-text)" : "var(--rose-text)" }} />}
+          iconBg={backendOk ? "var(--green-dim)" : "var(--rose-dim)"}
+          delta="Render cloud"
+          deltaColor="var(--text-muted)"
         />
       </div>
 
-      {/* Main content */}
+      {/* Main content — 2 col layout matching dotrack dashboard grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: "16px" }}>
-        {/* Recent runs */}
+
+        {/* Recent runs list */}
         <div
           style={{
             background: "var(--bg-surface)",
-            border: "1px solid var(--border)",
+            border: "1px solid var(--border-strong)",
             borderRadius: "var(--radius-lg)",
             overflow: "hidden",
+            boxShadow: "var(--shadow-sm)",
           }}
         >
           <div
@@ -159,20 +178,10 @@ export function DashboardPage() {
             }}
           >
             <div>
-              <span
-                style={{
-                  display: "block",
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  color: "var(--text-muted)",
-                  marginBottom: "2px",
-                }}
-              >
+              <span style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>
                 Recent
               </span>
-              <h2 style={{ fontSize: "15px", fontWeight: 600, margin: 0 }}>
+              <h2 style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>
                 Trace Runs
               </h2>
             </div>
@@ -180,16 +189,7 @@ export function DashboardPage() {
               Last {runs.length} runs
             </span>
           </div>
-          <div
-            style={{
-              padding: "10px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "6px",
-              maxHeight: "420px",
-              overflowY: "auto",
-            }}
-          >
+          <div style={{ padding: "10px", display: "flex", flexDirection: "column", gap: "6px", maxHeight: "420px", overflowY: "auto" }}>
             {runs.length === 0 ? (
               <EmptyState
                 icon={<Database size={20} />}
@@ -197,49 +197,47 @@ export function DashboardPage() {
                 description="Trigger a Jira issue trace to get started."
               />
             ) : (
-              runs.map((run) => <RunCard key={run.run_id} run={run} compact />)
+              runs.map((run) => (
+                <RunCard
+                  key={run.run_id}
+                  run={run}
+                  onClick={() => navigate(`/traces/${run.run_id}`)}
+                />
+              ))
             )}
           </div>
         </div>
 
         {/* Right column */}
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-          {/* Quick trace */}
+
+          {/* Quick trace card */}
           <div
             style={{
               background: "var(--bg-surface)",
-              border: "1px solid var(--border)",
+              border: "1px solid var(--border-strong)",
               borderRadius: "var(--radius-lg)",
               overflow: "hidden",
+              boxShadow: "var(--shadow-sm)",
             }}
           >
             <div
               style={{
                 padding: "14px 18px",
                 borderBottom: "1px solid var(--border)",
-                background: "linear-gradient(135deg, rgba(99,179,237,0.08), rgba(167,139,250,0.06))",
+                background: "var(--purple-dim)",
               }}
             >
-              <span
-                style={{
-                  display: "block",
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  color: "var(--cyan)",
-                  marginBottom: "2px",
-                }}
-              >
+              <span style={{ display: "block", fontSize: "11px", color: "var(--purple-text)", fontWeight: 600, marginBottom: "2px" }}>
                 Quick Action
               </span>
-              <h2 style={{ fontSize: "15px", fontWeight: 600, margin: 0 }}>
+              <h2 style={{ fontSize: "15px", fontWeight: 600, color: "var(--purple-text)", margin: 0 }}>
                 Trace Jira Issue
               </h2>
             </div>
             <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
               <Input
-                label="Issue key"
+                label="ISSUE KEY"
                 id="dashboard-issue-key"
                 value={traceKey}
                 onChange={(e) => setTraceKey(e.target.value.toUpperCase())}
@@ -252,7 +250,7 @@ export function DashboardPage() {
                 icon={<Play size={14} />}
                 loading={busy === "trace"}
                 onClick={() => void traceIssue()}
-                style={{ width: "100%", justifyContent: "center" }}
+                style={{ width: "100%", justifyContent: "center", minHeight: "40px" }}
               >
                 {busy === "trace" ? "Recording…" : "Start Trace"}
               </Button>
@@ -263,42 +261,29 @@ export function DashboardPage() {
           <div
             style={{
               background: "var(--bg-surface)",
-              border: "1px solid var(--border)",
+              border: "1px solid var(--border-strong)",
               borderRadius: "var(--radius-lg)",
               overflow: "hidden",
+              boxShadow: "var(--shadow-sm)",
             }}
           >
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
-              <span
-                style={{
-                  display: "block",
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  color: "var(--text-muted)",
-                  marginBottom: "2px",
-                }}
-              >
-                Alerts
-              </span>
-              <h2 style={{ fontSize: "15px", fontWeight: 600, margin: 0 }}>
-                Recent Drift
-              </h2>
+              <span style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Alerts</span>
+              <h2 style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>Recent Drift</h2>
             </div>
             <div style={{ padding: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
               {warnings.filter((w) => w.warning_type.includes("drift")).slice(0, 4).map((w) => (
                 <div
                   key={w.warning_id}
                   style={{
-                    padding: "8px 10px",
-                    background: "var(--bg-raised)",
-                    border: "1px solid rgba(251,191,36,0.2)",
-                    borderRadius: "var(--radius-sm)",
+                    padding: "8px 12px",
+                    background: "var(--amber-dim)",
+                    border: "1px solid #fcd34d",
+                    borderRadius: "var(--radius-md)",
                     borderLeft: "3px solid var(--amber)",
                   }}
                 >
-                  <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--amber)", marginBottom: "2px" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--amber-text)", marginBottom: "2px" }}>
                     {w.warning_type.replace(/_/g, " ")}
                   </div>
                   <div style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
@@ -307,28 +292,29 @@ export function DashboardPage() {
                 </div>
               ))}
               {driftCount === 0 && (
-                <div style={{ padding: "12px", textAlign: "center", fontSize: "12px", color: "var(--text-muted)" }}>
+                <div style={{ padding: "12px", textAlign: "center", fontSize: "12px", color: "var(--green-text)" }}>
                   ✓ No drift detected
                 </div>
               )}
             </div>
           </div>
 
-          {/* Regression quick summary */}
+          {/* Regression summary */}
           {regressions.length > 0 && (
             <div
               style={{
                 background: "var(--bg-surface)",
-                border: "1px solid var(--border)",
+                border: "1px solid var(--border-strong)",
                 borderRadius: "var(--radius-lg)",
                 padding: "14px 18px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
+                boxShadow: "var(--shadow-sm)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <Zap size={16} style={{ color: "var(--violet)" }} />
+                <Zap size={16} style={{ color: "var(--purple-text)" }} />
                 <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>
                   {regressions.length} regression test{regressions.length !== 1 ? "s" : ""}
                 </span>
@@ -338,7 +324,7 @@ export function DashboardPage() {
                   style={{
                     fontSize: "16px",
                     fontWeight: 700,
-                    color: passRate >= 80 ? "var(--emerald)" : "var(--amber)",
+                    color: passRate >= 80 ? "var(--green-text)" : "var(--amber-text)",
                   }}
                 >
                   {passRate}% pass

@@ -4,23 +4,17 @@ interface CardProps {
   children: ReactNode;
   style?: CSSProperties;
   className?: string;
-  glow?: boolean;
-  onClick?: () => void;
 }
 
-export function Card({ children, style, className, glow, onClick }: CardProps) {
+/* Matches dotrack StatCard: bg-[#f5f6f8] rounded-lg border border-[#b3b4c6] */
+export function Card({ children, style }: CardProps) {
   return (
     <div
-      className={className}
-      onClick={onClick}
       style={{
         background: "var(--bg-surface)",
-        border: "1px solid var(--border)",
+        border: "1px solid var(--border-strong)",
         borderRadius: "var(--radius-lg)",
-        overflow: "hidden",
-        transition: "border-color var(--transition), box-shadow var(--transition)",
-        cursor: onClick ? "pointer" : undefined,
-        ...(glow && { boxShadow: "var(--shadow-cyan)" }),
+        boxShadow: "var(--shadow-sm)",
         ...style,
       }}
     >
@@ -38,13 +32,11 @@ export function CardHeader({ children, style }: CardHeaderProps) {
   return (
     <div
       style={{
-        padding: "14px 18px",
-        borderBottom: "1px solid var(--border)",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: "10px",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%)",
+        padding: "12px 16px",
+        borderBottom: "1px solid var(--border)",
         ...style,
       }}
     >
@@ -56,18 +48,11 @@ export function CardHeader({ children, style }: CardHeaderProps) {
 interface CardBodyProps {
   children: ReactNode;
   style?: CSSProperties;
-  scroll?: boolean;
 }
 
-export function CardBody({ children, style, scroll }: CardBodyProps) {
+export function CardBody({ children, style }: CardBodyProps) {
   return (
-    <div
-      style={{
-        padding: "14px 18px",
-        overflowY: scroll ? "auto" : undefined,
-        ...style,
-      }}
-    >
+    <div style={{ padding: "16px", ...style }}>
       {children}
     </div>
   );

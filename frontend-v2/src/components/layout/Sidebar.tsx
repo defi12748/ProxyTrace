@@ -1,162 +1,229 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { NavLink } from "react-router-dom";
 import {
-  Activity,
-  GitBranch,
   LayoutDashboard,
-  List,
+  GitBranch,
   ShieldAlert,
   TestTube2,
+  ChevronLeft,
+  ChevronRight,
+  Activity,
 } from "lucide-react";
 
-const NAV = [
-  { to: "/",           label: "Dashboard",  icon: LayoutDashboard },
-  { to: "/traces",     label: "Traces",     icon: List },
-  { to: "/drift",      label: "Drift",      icon: ShieldAlert },
-  { to: "/regression", label: "Regression", icon: TestTube2 },
+const NAV_ITEMS = [
+  { id: "dashboard",   to: "/",            label: "Dashboard",   Icon: LayoutDashboard },
+  { id: "traces",      to: "/traces",      label: "Traces",      Icon: GitBranch },
+  { id: "drift",       to: "/drift",       label: "Drift",       Icon: ShieldAlert },
+  { id: "regression",  to: "/regression",  label: "Regression",  Icon: TestTube2 },
 ];
 
 export function Sidebar() {
-  const { pathname } = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
+  const [hovering, setHovering] = useState(false);
+
+  // Expand on hover when collapsed (dotrack behaviour)
+  const isCollapsed = collapsed && !hovering;
 
   return (
-    <aside
+    <div
+      onMouseEnter={() => { if (collapsed) setHovering(true); }}
+      onMouseLeave={() => { if (collapsed) setHovering(false); }}
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        bottom: 0,
-        width: "var(--sidebar-width)",
-        background: "var(--bg-surface)",
-        borderRight: "1px solid var(--border)",
+        width: isCollapsed ? "var(--sidebar-collapsed-width)" : "var(--sidebar-width)",
+        minWidth: isCollapsed ? "var(--sidebar-collapsed-width)" : "var(--sidebar-width)",
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
-        zIndex: 100,
-        userSelect: "none",
+        background: "var(--bg-base)",
+        borderRight: "1px solid var(--border)",
+        transition: "width var(--transition-slow), min-width var(--transition-slow)",
+        overflow: "hidden",
+        flexShrink: 0,
       }}
     >
-      {/* Logo */}
+      {/* ── Logo header ── */}
       <div
         style={{
-          padding: "20px 18px 18px",
-          borderBottom: "1px solid var(--border)",
           display: "flex",
           alignItems: "center",
-          gap: "10px",
+          justifyContent: "space-between",
+          padding: "12px",
+          borderBottom: "1px solid var(--border)",
+          height: "50px",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden" }}>
+          {/* Icon mark */}
+          <div
+            style={{
+              width: "32px",
+              height: "32px",
+              borderRadius: "var(--radius-md)",
+              background: "var(--purple)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Activity size={16} style={{ color: "white" }} />
+          </div>
+          {/* Full name — hidden when collapsed */}
+          {!isCollapsed && (
+            <span
+              style={{
+                fontSize: "14px",
+                fontWeight: 700,
+                color: "var(--text-primary)",
+                whiteSpace: "nowrap",
+                animation: "slideIn 0.2s ease",
+              }}
+            >
+              ProxyTrace
+            </span>
+          )}
+        </div>
+
+        {/* Toggle button — only visible when not collapsed */}
+        {!isCollapsed && (
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            style={{
+              width: "30px",
+              height: "32px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "var(--radius-md)",
+              border: "none",
+              background: "var(--bg-surface)",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              transition: "background var(--transition)",
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-raised)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--bg-surface)"; }}
+          >
+            <ChevronLeft size={16} />
+          </button>
+        )}
+
+        {/* When collapsed, show expand icon */}
+        {isCollapsed && (
+          <button
+            onClick={() => setCollapsed(false)}
+            style={{
+              width: "30px",
+              height: "32px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "var(--radius-md)",
+              border: "none",
+              background: "transparent",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+            }}
+          >
+            <ChevronRight size={16} />
+          </button>
+        )}
+      </div>
+
+      {/* ── Main navigation ── */}
+      <nav
+        style={{
+          flex: 1,
+          padding: "8px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "2px",
+          overflowY: "auto",
+        }}
+      >
+        {NAV_ITEMS.map(({ id, to, label, Icon }) => (
+          <NavLink
+            key={id}
+            to={to}
+            end={to === "/"}
+            style={{ textDecoration: "none" }}
+          >
+            {({ isActive }) => (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: isCollapsed ? "8px" : "8px 12px",
+                  justifyContent: isCollapsed ? "center" : "flex-start",
+                  borderRadius: "var(--radius-md)",
+                  border: isActive
+                    ? "1px solid var(--border-strong)"
+                    : "1px solid transparent",
+                  background: isActive ? "var(--bg-surface)" : "transparent",
+                  color: isActive ? "var(--purple-text)" : "var(--text-secondary)",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all var(--transition)",
+                  whiteSpace: "nowrap",
+                  marginTop: "2px",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.6)";
+                    e.currentTarget.style.borderColor = "var(--border-strong)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.borderColor = "transparent";
+                  }
+                }}
+              >
+                <Icon
+                  size={18}
+                  style={{
+                    color: isActive ? "var(--purple-text)" : "var(--text-secondary)",
+                    flexShrink: 0,
+                  }}
+                />
+                {!isCollapsed && <span>{label}</span>}
+              </div>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* ── Footer ── */}
+      <div
+        style={{
+          borderTop: "1px solid var(--border)",
+          padding: "10px 12px",
+          fontSize: "11px",
+          color: "var(--text-muted)",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
         }}
       >
         <div
           style={{
-            width: "32px",
-            height: "32px",
-            borderRadius: "var(--radius-md)",
-            background: "linear-gradient(135deg, var(--cyan), var(--violet))",
-            display: "grid",
-            placeItems: "center",
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            background: "var(--green)",
             flexShrink: 0,
+            animation: "pulseDot 2s ease-in-out infinite",
           }}
-        >
-          <Activity size={17} color="white" />
-        </div>
-        <div>
-          <div
-            style={{
-              fontSize: "13px",
-              fontWeight: 700,
-              color: "var(--text-primary)",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            ProxyTrace
-          </div>
-          <div
-            style={{
-              fontSize: "10px",
-              color: "var(--text-muted)",
-              fontWeight: 500,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-            }}
-          >
-            Agent Observability
-          </div>
-        </div>
+        />
+        {!isCollapsed && <span>v0.2 · Render backend</span>}
       </div>
-
-      {/* Section label */}
-      <div style={{ padding: "18px 18px 6px" }}>
-        <span
-          style={{
-            fontSize: "10px",
-            fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: "0.1em",
-            color: "var(--text-muted)",
-          }}
-        >
-          Navigation
-        </span>
-      </div>
-
-      {/* Nav items */}
-      <nav style={{ flex: 1, padding: "0 10px", display: "flex", flexDirection: "column", gap: "2px" }}>
-        {NAV.map(({ to, label, icon: Icon }) => {
-          const isActive =
-            to === "/" ? pathname === "/" : pathname.startsWith(to);
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/"}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                padding: "9px 10px",
-                borderRadius: "var(--radius-md)",
-                fontSize: "13px",
-                fontWeight: 500,
-                textDecoration: "none",
-                transition: "all var(--transition)",
-                color: isActive ? "var(--cyan)" : "var(--text-secondary)",
-                background: isActive ? "var(--cyan-dim)" : "transparent",
-                border: isActive
-                  ? "1px solid rgba(99,179,237,0.15)"
-                  : "1px solid transparent",
-              }}
-            >
-              <Icon size={15} />
-              {label}
-              {isActive && (
-                <span
-                  style={{
-                    marginLeft: "auto",
-                    width: "4px",
-                    height: "4px",
-                    borderRadius: "50%",
-                    background: "var(--cyan)",
-                  }}
-                />
-              )}
-            </NavLink>
-          );
-        })}
-      </nav>
-
-      {/* Footer */}
-      <div
-        style={{
-          padding: "14px 18px",
-          borderTop: "1px solid var(--border)",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-        }}
-      >
-        <GitBranch size={13} style={{ color: "var(--text-muted)" }} />
-        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-          v0.2 · Render backend
-        </span>
-      </div>
-    </aside>
+    </div>
   );
 }
