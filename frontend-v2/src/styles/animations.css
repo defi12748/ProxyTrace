@@ -43,3 +43,9 @@
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: var(--radius-md);
 }
+
+.animate-fade-in {
+  opacity: 0;
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: var(--stagger, 0ms);
+}

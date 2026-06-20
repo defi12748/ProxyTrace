@@ -119,20 +119,21 @@ hr {
   margin-bottom: 20px;
 }/* ---- Utility classes for micro-animations ---- */
 .premium-card {
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform var(--transition), box-shadow var(--transition);
 }
 .premium-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.3), 0 0 15px rgba(139, 92, 246, 0.1);
-  border-color: rgba(139, 92, 246, 0.3) !important;
+  box-shadow: var(--shadow-md);
 }
 
 .premium-row {
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.2s ease;
+  transition: transform var(--transition), box-shadow var(--transition), background var(--transition), border-color var(--transition);
 }
 .premium-row:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px -5px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-sm);
+  background: var(--bg-surface);
+  border-color: var(--border-strong);
   z-index: 10;
   position: relative;
 }

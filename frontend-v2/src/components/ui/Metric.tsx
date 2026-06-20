@@ -21,6 +21,7 @@ export function Metric({ label, value, subtitle, icon, iconBg, delta, deltaColor
 
   return (
     <div
+      className="premium-card"
       style={{
         padding: "16px",
         background: "var(--bg-base)",
@@ -31,10 +32,7 @@ export function Metric({ label, value, subtitle, icon, iconBg, delta, deltaColor
         justifyContent: "space-between",
         gap: "8px",
         boxShadow: "var(--shadow-sm)",
-        transition: "box-shadow var(--transition)",
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-md)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-sm)"; }}
     >
       {/* Top row: label + icon */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>

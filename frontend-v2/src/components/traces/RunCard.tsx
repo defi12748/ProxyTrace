@@ -12,6 +12,7 @@ interface RunCardProps {
 export function RunCard({ run, onClick, active = false }: RunCardProps) {
   return (
     <div
+      className="premium-row"
       onClick={onClick}
       style={{
         display: "flex",
@@ -22,22 +23,7 @@ export function RunCard({ run, onClick, active = false }: RunCardProps) {
         border: active ? "1px solid var(--border-strong)" : "1px solid var(--border)",
         borderRadius: "var(--radius-lg)",
         cursor: "pointer",
-        transition: "all var(--transition)",
         boxShadow: active ? "var(--shadow-sm)" : "none",
-      }}
-      onMouseEnter={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = "var(--bg-surface)";
-          e.currentTarget.style.borderColor = "var(--border-strong)";
-          e.currentTarget.style.boxShadow = "var(--shadow-sm)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = "var(--bg-base)";
-          e.currentTarget.style.borderColor = "var(--border)";
-          e.currentTarget.style.boxShadow = "none";
-        }
       }}
     >
       <StatusDot status={run.status} />
