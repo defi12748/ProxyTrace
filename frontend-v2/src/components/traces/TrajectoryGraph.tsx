@@ -10,6 +10,8 @@ interface TrajectoryGraphProps {
   steps: Step[];
   patchedSteps: JsonObject[];
   patchStep: number | null;
+  selectedStepId?: string | null;
+  onSelectNode?: (stepId: string) => void;
 }
 
 function NodeLabel({
@@ -81,6 +83,8 @@ export function TrajectoryGraph({
   steps,
   patchedSteps,
   patchStep,
+  selectedStepId,
+  onSelectNode,
 }: TrajectoryGraphProps) {
   const { nodes, edges } = buildGraph(
     steps,
@@ -90,6 +94,11 @@ export function TrajectoryGraph({
       <NodeLabel step={step} stepIndex={stepIndex} isUnverified={isUnverified} />
     )
   );
+
+  const activeNodes = nodes.map(node => ({
+    ...node,
+    className: node.className + (node.data.stepId === selectedStepId ? " selected" : "")
+  }));
 
   return (
     <div
@@ -138,7 +147,7 @@ export function TrajectoryGraph({
       )}
 
       <ReactFlow
-        nodes={nodes}
+        nodes={activeNodes}
         edges={edges}
         fitView
         minZoom={0.35}
@@ -146,6 +155,11 @@ export function TrajectoryGraph({
         proOptions={{ hideAttribution: true }}
         nodesDraggable={false}
         nodesConnectable={false}
+        onNodeClick={(_, node) => {
+          if (onSelectNode && typeof node.data.stepId === "string") {
+            onSelectNode(node.data.stepId);
+          }
+        }}
         style={{
           background: "var(--bg-raised)",
           borderRadius: "var(--radius-md)",
@@ -180,9 +194,17 @@ export function TrajectoryGraph({
         .pt-node.pt-unverified {
           border-color: rgba(248,113,113,0.4);
         }
-        .react-flow__node.selected .pt-node {
-          border-color: rgba(99,179,237,0.5);
-          box-shadow: 0 0 12px rgba(99,179,237,0.15);
+        .react-flow__node.selected .pt-node,
+        .pt-node.selected {
+          border-color: rgba(99,179,237,0.8);
+          box-shadow: 0 0 12px rgba(99,179,237,0.2);
+          cursor: pointer;
+        }
+        .pt-node {
+          cursor: pointer;
+        }
+        .pt-node:hover {
+          border-color: rgba(99,179,237,0.4);
         }
       `}</style>
     </div>

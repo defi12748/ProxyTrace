@@ -273,6 +273,8 @@ export function TraceDetailPage() {
                 steps={detail.steps}
                 patchedSteps={patchedSteps}
                 patchStep={patchStep}
+                selectedStepId={selectedStepId}
+                onSelectNode={setSelectedStepId}
               />
             </div>
           </Card>
@@ -291,15 +293,20 @@ export function TraceDetailPage() {
               </div>
             </CardHeader>
             <CardBody style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <Button
-                variant="primary"
-                icon={<RotateCcw size={14} />}
-                loading={busy === "strict"}
-                onClick={() => void runStrict()}
-                style={{ width: "100%", justifyContent: "center" }}
-              >
-                Safe Replay
-              </Button>
+              <div>
+                <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 8px 0", lineHeight: 1.5 }}>
+                  Re-run this trace with side-effects disabled to test if the agent is deterministic.
+                </p>
+                <Button
+                  variant="primary"
+                  icon={<RotateCcw size={14} />}
+                  loading={busy === "strict"}
+                  onClick={() => void runStrict()}
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  Safe Replay
+                </Button>
+              </div>
 
               <div style={{ borderTop: "1px solid var(--border)", paddingTop: "10px" }}>
                 <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-muted)", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -328,6 +335,9 @@ export function TraceDetailPage() {
                     </button>
                   ))}
                 </div>
+                <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 8px 0", lineHeight: 1.5 }}>
+                  Inject a mock response into the selected step to see if the agent recovers or changes its path.
+                </p>
                 <Button
                   variant="ghost"
                   icon={<Split size={14} />}
@@ -350,13 +360,21 @@ export function TraceDetailPage() {
 
           {/* Go to Replay Studio */}
           {(strictReplay || exploratoryReplay) && (
-            <Button
-              variant="ghost"
-              onClick={() => navigate(`/traces/${runId}/replay`)}
-              style={{ width: "100%", justifyContent: "center" }}
-            >
-              Open Replay Studio →
-            </Button>
+            <div style={{ animation: "pulse 2s infinite" }}>
+              <Button
+                variant="primary"
+                onClick={() => navigate(`/traces/${runId}/replay`)}
+                style={{
+                  width: "100%",
+                  justifyContent: "center",
+                  background: "var(--violet)",
+                  color: "#fff",
+                  boxShadow: "0 0 15px rgba(167,139,250,0.4)"
+                }}
+              >
+                Open Replay Studio →
+              </Button>
+            </div>
           )}
         </div>
       </div>

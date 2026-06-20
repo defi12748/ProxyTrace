@@ -402,41 +402,66 @@ function DiffRow({
   }[highlight];
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-        padding: "7px 8px",
-        borderRadius: "var(--radius-sm)",
-        background: hlBg,
-        border: `1px solid ${highlight !== "none" ? hlColor + "44" : "transparent"}`,
-        borderLeft: highlight !== "none" ? `3px solid ${hlColor}` : "3px solid transparent",
-        transition: "background var(--transition)",
-      }}
-    >
-      <span
+    <div style={{ position: "relative" }}>
+      {highlight === "patch" && (
+        <div
+          style={{
+            position: "absolute",
+            top: "-10px",
+            right: "8px",
+            background: "var(--amber)",
+            color: "#000",
+            fontSize: "9px",
+            fontWeight: 800,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            padding: "2px 6px",
+            borderRadius: "4px",
+            zIndex: 2,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+          }}
+        >
+          Divergence Point
+        </div>
+      )}
+      <div
         style={{
-          width: "20px",
-          height: "20px",
-          borderRadius: "4px",
-          display: "grid",
-          placeItems: "center",
-          fontSize: "10px",
-          fontWeight: 700,
-          background: type === "llm" ? "var(--violet-dim)" : "var(--cyan-dim)",
-          color: type === "llm" ? "var(--violet)" : "var(--cyan)",
-          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          padding: highlight === "patch" ? "12px 8px" : "7px 8px",
+          borderRadius: "var(--radius-sm)",
+          background: hlBg,
+          border: `1px solid ${highlight !== "none" ? hlColor + "44" : "transparent"}`,
+          borderLeft: highlight !== "none" ? `3px solid ${hlColor}` : "3px solid transparent",
+          transition: "background var(--transition)",
+          marginTop: highlight === "patch" ? "8px" : "0",
+          marginBottom: highlight === "patch" ? "8px" : "0",
         }}
       >
-        {index}
-      </span>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {name}
-        </div>
-        <div style={{ fontSize: "10px", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {subtitle}
+        <span
+          style={{
+            width: "20px",
+            height: "20px",
+            borderRadius: "4px",
+            display: "grid",
+            placeItems: "center",
+            fontSize: "10px",
+            fontWeight: 700,
+            background: type === "llm" ? "var(--violet-dim)" : "var(--cyan-dim)",
+            color: type === "llm" ? "var(--violet)" : "var(--cyan)",
+            flexShrink: 0,
+          }}
+        >
+          {index}
+        </span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: "11px", fontWeight: 600, color: highlight === "patch" ? "var(--text-primary)" : "var(--text-secondary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {name}
+          </div>
+          <div style={{ fontSize: "10px", color: highlight === "patch" ? "var(--text-secondary)" : "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {subtitle}
+          </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Brain, AlertOctagon, TrendingUp, User, Zap, GitBranch } from "lucide-react";
+import { Brain, AlertOctagon, TrendingUp, User, Zap, GitBranch, MessageSquare } from "lucide-react";
 import { Badge } from "../ui/Badge";
 import { asRecord } from "../../api/client";
 import { confidenceLabel } from "../../lib/utils";
@@ -67,6 +67,31 @@ export function VerdictPanel({ replay }: VerdictPanelProps) {
           )}
         </div>
       </div>
+
+      {/* Human Readable Summary */}
+      {semanticJudgment.reasoning && (
+        <div
+          style={{
+            background: "var(--violet-dim)",
+            border: "1px solid rgba(167,139,250,0.3)",
+            borderRadius: "var(--radius-md)",
+            padding: "16px",
+            display: "flex",
+            gap: "12px",
+            alignItems: "flex-start",
+          }}
+        >
+          <MessageSquare size={16} style={{ color: "var(--violet)", flexShrink: 0, marginTop: "2px" }} />
+          <div>
+            <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--violet)", marginBottom: "4px" }}>
+              Summary
+            </div>
+            <div style={{ fontSize: "14px", color: "var(--text-primary)", lineHeight: 1.5, fontWeight: 500 }}>
+              {String(semanticJudgment.reasoning)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats grid */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
