@@ -285,15 +285,19 @@ export function ReplayStudioPage() {
           )}
 
           {/* Side-by-side diff */}
-          {exploratoryReplay && detail && (
+          {(exploratoryReplay || strictReplay) && detail && (
             <Card>
               <CardHeader>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <span style={{ fontSize: "14px", fontWeight: 600 }}>Workflow Visualizer</span>
                   <div style={{ display: "flex", gap: "10px" }}>
                     <span style={{ fontSize: "11px", color: "var(--cyan)" }}>■ Original</span>
-                    <span style={{ fontSize: "11px", color: "var(--violet)" }}>■ Patched</span>
-                    <span style={{ fontSize: "11px", color: "var(--amber)" }}>■ Changed</span>
+                    {exploratoryReplay && (
+                      <>
+                        <span style={{ fontSize: "11px", color: "var(--violet)" }}>■ Patched</span>
+                        <span style={{ fontSize: "11px", color: "var(--amber)" }}>■ Changed</span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: "flex", background: "var(--bg-raised)", borderRadius: "var(--radius-md)", padding: "2px" }}>
@@ -339,9 +343,9 @@ export function ReplayStudioPage() {
                     patchStep={patchStep}
                   />
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: "200px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: exploratoryReplay ? "1fr 1fr" : "1fr", minHeight: "200px" }}>
                     {/* Original */}
-                    <div style={{ borderRight: "1px solid var(--border)", padding: "12px" }}>
+                    <div style={{ borderRight: exploratoryReplay ? "1px solid var(--border)" : "none", padding: "12px" }}>
                     <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--cyan)", marginBottom: "8px" }}>
                       Original
                     </div>
@@ -366,7 +370,8 @@ export function ReplayStudioPage() {
                   </div>
 
                   {/* Patched */}
-                  <div style={{ padding: "12px" }}>
+                  {exploratoryReplay && (
+                    <div style={{ padding: "12px" }}>
                     <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--violet)", marginBottom: "8px" }}>
                       Patched → {patchBoard}
                     </div>
@@ -388,6 +393,7 @@ export function ReplayStudioPage() {
                       })}
                     </div>
                   </div>
+                  )}
                   </div>
                 )}
               </CardBody>
