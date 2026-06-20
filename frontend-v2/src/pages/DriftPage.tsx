@@ -8,6 +8,8 @@ import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { SearchBar } from "../components/ui/SearchBar";
 import { Pagination } from "../components/ui/Pagination";
+import { CountUp } from "../components/ui/CountUp";
+import { SkeletonMetric, Skeleton } from "../components/ui/Skeleton";
 import { showToast } from "../components/ui/Toast";
 import { ProxyTraceApi, getInitialApiBase, formatDate, compactId } from "../api/client";
 import type { Warning } from "../api/types";
@@ -24,6 +26,7 @@ export function DriftPage() {
   const [rows, setRows] = useState<DriftRow[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [page, setPage] = useState(1);
 
@@ -56,6 +59,7 @@ export function DriftPage() {
       showToast(err instanceof Error ? err.message : "Load failed", "error");
     } finally {
       setBusy(false);
+      setLoading(false);
     }
   }, [api]);
 
@@ -90,27 +94,37 @@ export function DriftPage() {
     >
       {/* Summary stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px" }}>
-        {[
-          { label: "Total Warnings", value: rows.length, color: "var(--text-primary)" },
-          { label: "Input Schema Drift", value: driftKinds.input, color: "var(--amber-text)" },
-          { label: "Output Schema Drift", value: driftKinds.output, color: "var(--rose-text)" },
-          { label: "Descriptor Drift", value: driftKinds.descriptor, color: "var(--purple-text)" },
-        ].map(({ label, value, color }) => (
-          <div
-            key={label}
-            style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-lg)",
-              padding: "14px 16px",
-            }}
-          >
-            <div style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: "6px" }}>
-              {label}
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <SkeletonMetric key={i} />)
+        ) : (
+          [
+            { label: "Total Warnings",      value: rows.length,          color: "var(--text-primary)" },
+            { label: "Input Schema Drift",   value: driftKinds.input,     color: "var(--amber-text)" },
+            { label: "Output Schema Drift",  value: driftKinds.output,    color: "var(--rose-text)" },
+            { label: "Descriptor Drift",     value: driftKinds.descriptor, color: "var(--purple-text)" },
+          ].map(({ label, value, color }) => (
+            <div
+              key={label}
+              style={{
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-strong)",
+                borderRadius: "var(--radius-lg)",
+                padding: "14px 16px",
+                boxShadow: "var(--shadow-sm)",
+                transition: "box-shadow var(--transition)",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-md)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-sm)"; }}
+            >
+              <div style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: "6px" }}>
+                {label}
+              </div>
+              <div style={{ fontSize: "26px", fontWeight: 700, color }}>
+                <CountUp to={value} />
+              </div>
             </div>
-            <div style={{ fontSize: "26px", fontWeight: 700, color }}>{value}</div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Table */}
@@ -126,7 +140,37 @@ export function DriftPage() {
           </div>
         </CardHeader>
 
-        {rows.length === 0 && !busy ? (
+        {loading ? (
+          <div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "160px 140px 130px 1fr 1fr 130px",
+                gap: "8px",
+                padding: "8px 16px",
+                borderBottom: "1px solid var(--border)",
+                fontSize: "10px",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.07em",
+                color: "var(--text-muted)",
+                background: "var(--bg-base)",
+              }}
+            >
+              <span>Warning Type</span>
+              <span>Run</span>
+              <span>Step</span>
+              <span>Old Hash</span>
+              <span>New Hash</span>
+              <span>Surfaced</span>
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
+                <Skeleton width="100%" height="24px" radius="12px" />
+              </div>
+            ))}
+          </div>
+        ) : rows.length === 0 ? (
           <CardBody>
             <EmptyState
               icon={<CheckCircle2 size={22} />}

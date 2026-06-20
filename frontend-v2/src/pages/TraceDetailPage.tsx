@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
   GitBranch,
   RefreshCw,
   RotateCcw,
   Split,
+  ChevronRight,
 } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { Button } from "../components/ui/Button";
 import { Badge, statusColor } from "../components/ui/Badge";
 import { EmptyState } from "../components/ui/EmptyState";
+import { CopyId } from "../components/ui/CopyId";
+import { Skeleton, SkeletonCard } from "../components/ui/Skeleton";
 import { StepTimeline } from "../components/traces/StepTimeline";
 import { StepInspector } from "../components/traces/StepInspector";
 import { TrajectoryGraph } from "../components/traces/TrajectoryGraph";
@@ -127,8 +130,15 @@ export function TraceDetailPage() {
 
   if (!detail && busy === "load") {
     return (
-      <PageShell title="Loading trace…">
-        <div style={{ color: "var(--text-muted)", fontSize: "13px" }}>Fetching trace data…</div>
+      <PageShell title={<Skeleton width="200px" height="28px" />}>
+        <div style={{ display: "grid", gridTemplateColumns: "260px 1fr 320px", gap: "12px", height: "calc(100vh - 220px)" }}>
+          <SkeletonCard rows={10} />
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <SkeletonCard rows={5} />
+            <SkeletonCard rows={4} />
+          </div>
+          <SkeletonCard rows={8} />
+        </div>
       </PageShell>
     );
   }
@@ -143,10 +153,44 @@ export function TraceDetailPage() {
 
   const run = detail.run;
 
+  // Calculate step type counts for subtitle
+  const stepCounts = detail.steps.reduce((acc, s) => {
+    acc[s.step_type] = (acc[s.step_type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const subtitleContent = (
+    <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+      <span>{detail.step_count} steps</span>
+      <span style={{ color: "var(--border-strong)" }}>·</span>
+      <span>Started {formatDate(run.started_at)}</span>
+      <span style={{ color: "var(--border-strong)" }}>·</span>
+      <div style={{ display: "flex", gap: "6px" }}>
+        {Object.entries(stepCounts).map(([type, count]) => (
+          <Badge key={type} color={statusColor(type)}>{count}× {type}</Badge>
+        ))}
+      </div>
+    </div>
+  );
+
+  const titleContent = (
+    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <Link to="/traces" style={{ color: "var(--text-muted)", textDecoration: "none" }}>Traces</Link>
+      <ChevronRight size={14} style={{ color: "var(--text-muted)" }} />
+      <span>{run.jira_issue_key ?? <CopyId value={run.run_id} display={compactId(run.run_id)} />}</span>
+      {selectedStep && (
+        <>
+          <ChevronRight size={14} style={{ color: "var(--text-muted)" }} />
+          <span style={{ fontSize: "16px", color: "var(--text-muted)" }}>Step {selectedStep.step_index}</span>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <PageShell
-      title={run.jira_issue_key ?? compactId(run.run_id)}
-      subtitle={`${detail.step_count} steps · Started ${formatDate(run.started_at)}`}
+      title={titleContent}
+      subtitle={subtitleContent}
       actions={
         <div style={{ display: "flex", gap: "8px" }}>
           <Button variant="ghost" icon={<ArrowLeft size={14} />} onClick={() => navigate("/traces")}>

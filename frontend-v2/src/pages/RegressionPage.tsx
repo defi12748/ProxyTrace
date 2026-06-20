@@ -13,6 +13,8 @@ import { Button } from "../components/ui/Button";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { CodeBlock } from "../components/ui/CodeBlock";
+import { CountUp } from "../components/ui/CountUp";
+import { SkeletonMetric, Skeleton } from "../components/ui/Skeleton";
 import { showToast } from "../components/ui/Toast";
 import { ProxyTraceApi, getInitialApiBase, formatDate, compactId } from "../api/client";
 import type { RegressionItem, RegressionRunResult } from "../api/types";
@@ -24,6 +26,7 @@ export function RegressionPage() {
   const [regressions, setRegressions] = useState<RegressionItem[]>([]);
   const [runResult, setRunResult] = useState<RegressionRunResult | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -35,6 +38,7 @@ export function RegressionPage() {
       showToast(err instanceof Error ? err.message : "Load failed", "error");
     } finally {
       setBusy(null);
+      setLoading(false);
     }
   }, [api]);
 
@@ -86,27 +90,37 @@ export function RegressionPage() {
     >
       {/* Stats bar */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px" }}>
-        {[
-          { label: "Total Tests", value: regressions.length, color: "var(--text-primary)" },
-          { label: "Passing", value: totalPass, color: "var(--green-text)" },
-          { label: "Failing", value: totalFail, color: totalFail > 0 ? "var(--rose-text)" : "var(--text-muted)" },
-          { label: "Pass Rate", value: passRate !== null ? `${passRate}%` : "—", color: passRate !== null && passRate >= 80 ? "var(--green-text)" : "var(--amber-text)" },
-        ].map(({ label, value, color }) => (
-          <div
-            key={label}
-            style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-lg)",
-              padding: "14px 16px",
-            }}
-          >
-            <div style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: "6px" }}>
-              {label}
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <SkeletonMetric key={i} />)
+        ) : (
+          [
+            { label: "Total Tests", value: regressions.length, color: "var(--text-primary)" },
+            { label: "Passing", value: totalPass, color: "var(--green-text)" },
+            { label: "Failing", value: totalFail, color: totalFail > 0 ? "var(--rose-text)" : "var(--text-muted)" },
+            { label: "Pass Rate", value: passRate !== null ? `${passRate}%` : "—", color: passRate !== null && passRate >= 80 ? "var(--green-text)" : "var(--amber-text)" },
+          ].map(({ label, value, color }) => (
+            <div
+              key={label}
+              style={{
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-strong)",
+                borderRadius: "var(--radius-lg)",
+                padding: "14px 16px",
+                boxShadow: "var(--shadow-sm)",
+                transition: "box-shadow var(--transition)",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-md)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-sm)"; }}
+            >
+              <div style={{ fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: "6px" }}>
+                {label}
+              </div>
+              <div style={{ fontSize: "26px", fontWeight: 700, color }}>
+                {typeof value === "number" ? <CountUp to={value} /> : value}
+              </div>
             </div>
-            <div style={{ fontSize: "26px", fontWeight: 700, color }}>{value}</div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Run result banner */}
@@ -167,7 +181,37 @@ export function RegressionPage() {
           </span>
         </CardHeader>
 
-        {regressions.length === 0 && busy !== "load" ? (
+        {loading ? (
+          <div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "130px 130px 130px 80px 80px 1fr 120px",
+                gap: "8px",
+                padding: "8px 16px",
+                borderBottom: "1px solid var(--border)",
+                fontSize: "10px",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.07em",
+                color: "var(--text-muted)",
+              }}
+            >
+              <span>Test ID</span>
+              <span>Run</span>
+              <span>Replay</span>
+              <span>Passed</span>
+              <span>Failed</span>
+              <span>Promoted</span>
+              <span>Last Run</span>
+            </div>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{ padding: "11px 16px", borderBottom: "1px solid var(--border)" }}>
+                <Skeleton width="100%" height="20px" radius="8px" />
+              </div>
+            ))}
+          </div>
+        ) : regressions.length === 0 ? (
           <CardBody>
             <EmptyState
               icon={<BadgeCheck size={22} />}
