@@ -94,7 +94,7 @@ export function DriftPage() {
       }
     >
       {/* Summary stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px" }}>
+      <div id="tour-drift-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px" }}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonMetric key={i} />)
         ) : (
@@ -129,8 +129,9 @@ export function DriftPage() {
       </div>
 
       {/* Table */}
-      <Card>
-        <CardHeader>
+      <div id="tour-drift-list">
+        <Card>
+          <CardHeader>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <ShieldAlert size={15} style={{ color: "var(--amber)" }} />
             <span style={{ fontSize: "14px", fontWeight: 600 }}>Drift Warnings</span>
@@ -375,6 +376,7 @@ export function DriftPage() {
           </CardBody>
         )}
       </Card>
+      </div>
     </PageShell>
   );
 }

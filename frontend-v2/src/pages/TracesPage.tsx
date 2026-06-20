@@ -136,6 +136,7 @@ export function TracesPage() {
 
       {/* Toolbar */}
       <div
+        id="tour-traces-search"
         style={{
           display: "flex",
           gap: "10px",
@@ -197,37 +198,39 @@ export function TracesPage() {
       </div>
 
       {/* Run grid */}
-      {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "10px" }}>
-          {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
-        </div>
-      ) : paged.length === 0 ? (
-        <EmptyState
-          icon={<Database size={22} />}
-          title="No runs found"
-          description={
-            search || issueFilter
-              ? `No traces matching your filters`
-              : "Record your first trace using the input above."
-          }
-        />
-      ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-            gap: "10px",
-          }}
-        >
-          {paged.map((run) => (
-            <RunCard
-              key={run.run_id}
-              run={run}
-              onClick={() => navigate(`/traces/${run.run_id}`)}
-            />
-          ))}
-        </div>
-      )}
+      <div id="tour-traces-list">
+        {loading ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "10px" }}>
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
+          </div>
+        ) : paged.length === 0 ? (
+          <EmptyState
+            icon={<Database size={22} />}
+            title="No runs found"
+            description={
+              search || issueFilter
+                ? `No traces matching your filters`
+                : "Record your first trace using the input above."
+            }
+          />
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+              gap: "10px",
+            }}
+          >
+            {paged.map((run) => (
+              <RunCard
+                key={run.run_id}
+                run={run}
+                onClick={() => navigate(`/traces/${run.run_id}`)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Footer: count + pagination */}
       {sorted.length > 0 && (

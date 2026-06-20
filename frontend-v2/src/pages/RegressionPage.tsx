@@ -91,6 +91,7 @@ export function RegressionPage() {
             Refresh
           </Button>
           <Button
+            id="tour-regression-run-all"
             variant="primary"
             icon={<PlayCircle size={14} />}
             loading={busy === "run"}
@@ -184,8 +185,9 @@ export function RegressionPage() {
       )}
 
       {/* Regression table */}
-      <Card>
-        <CardHeader>
+      <div id="tour-regression-list">
+        <Card>
+          <CardHeader>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <TestTube2 size={15} style={{ color: "var(--purple-text)" }} />
             <span style={{ fontSize: "14px", fontWeight: 600 }}>Test Pack</span>
@@ -386,6 +388,7 @@ export function RegressionPage() {
           </div>
         )}
       </Card>
+      </div>
     </PageShell>
   );
 }
