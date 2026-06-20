@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
@@ -9,6 +10,57 @@ import { TraceDetailPage } from "./pages/TraceDetailPage";
 import { ReplayStudioPage } from "./pages/ReplayStudioPage";
 import { DriftPage } from "./pages/DriftPage";
 import { RegressionPage } from "./pages/RegressionPage";
+import { TourProvider, useTour } from "./components/tour/TourProvider";
+
+function GlobalTourTracker() {
+  const { hasSeen, startTour } = useTour();
+
+  useEffect(() => {
+    // Only run on the dashboard route
+    if (window.location.pathname !== "/") return;
+
+    if (!hasSeen("welcome-tour")) {
+      // Delay slightly so the page renders fully
+      setTimeout(() => {
+        startTour({
+          id: "welcome-tour",
+          steps: [
+            {
+              target: "tour-sidebar",
+              title: "Welcome to ProxyTrace!",
+              description: "This is your main navigation. From here you can access your observability Dashboard, trace History, Drift alerts, and Regression test suites.",
+              placement: "right",
+              icon: "👋",
+            },
+            {
+              target: "tour-quick-trace",
+              title: "Start a Trace",
+              description: "Want to test an agent run? Enter a Jira issue key here to instantly trigger a trace and watch the agent's thought process live.",
+              placement: "left",
+              icon: "🚀",
+            },
+            {
+              target: "tour-cmd-palette",
+              title: "Command Palette",
+              description: "Press Cmd+K (or Ctrl+K) anywhere to quickly search for traces, jump to pages, or execute common actions.",
+              placement: "bottom",
+              icon: "⌨️",
+            },
+            {
+              target: "tour-recent-traces",
+              title: "Analyze Runs",
+              description: "Click on any recent trace to open the Replay Studio. There you can see every API call, identify drift, and safely replay agent decisions.",
+              placement: "top",
+              icon: "🔍",
+            },
+          ],
+        });
+      }, 800);
+    }
+  }, [hasSeen, startTour]);
+
+  return null;
+}
 
 export function App() {
   return (
@@ -39,7 +91,16 @@ export function App() {
 
       <CommandPalette />
       <ToastContainer />
+      <GlobalTourTracker />
     </BrowserRouter>
+  );
+}
+
+export function AppWrapper() {
+  return (
+    <TourProvider>
+      <App />
+    </TourProvider>
   );
 }
 

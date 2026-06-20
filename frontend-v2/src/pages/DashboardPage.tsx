@@ -211,7 +211,7 @@ export function DashboardPage() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: "16px" }}>
 
         {/* Recent runs */}
-        <div className="premium-card animate-fade-in" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-sm)", "--stagger": "200ms" } as React.CSSProperties}>
+        <div id="tour-recent-traces" className="premium-card animate-fade-in" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-sm)", "--stagger": "200ms" } as React.CSSProperties}>
           <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <span style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Recent</span>
@@ -236,7 +236,7 @@ export function DashboardPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
 
           {/* Quick trace */}
-          <div className="premium-card animate-fade-in" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-sm)", "--stagger": "250ms" } as React.CSSProperties}>
+          <div id="tour-quick-trace" className="premium-card animate-fade-in" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-sm)", "--stagger": "250ms" } as React.CSSProperties}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", background: "var(--purple-dim)" }}>
               <span style={{ display: "block", fontSize: "11px", color: "var(--purple-text)", fontWeight: 600, marginBottom: "2px" }}>Quick Action</span>
               <h2 style={{ fontSize: "15px", fontWeight: 600, color: "var(--purple-text)", margin: 0 }}>Trace Jira Issue</h2>

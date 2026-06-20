@@ -26,6 +26,7 @@ export function Sidebar() {
 
   return (
     <div
+      id="tour-sidebar"
       onMouseEnter={() => { if (collapsed) setHovering(true); }}
       onMouseLeave={() => { if (collapsed) setHovering(false); }}
       style={{

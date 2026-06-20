@@ -23,6 +23,7 @@ export function SearchBar({ value, onChange, placeholder = "Search…" }: Search
 
   return (
     <div
+      id="tour-cmd-palette"
       onClick={activate}
       style={{
         position: "relative",
