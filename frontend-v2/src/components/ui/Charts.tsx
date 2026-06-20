@@ -13,29 +13,28 @@ interface SparkBarProps {
 /** 7-day activity bar chart — green bars, amber when drift detected */
 export function SparkBar({ data, height = 64, color = "var(--blue)", driftColor = "var(--amber)" }: SparkBarProps) {
   const max = Math.max(...data.map((d) => d.value), 1);
-  const barW = 16;
-  const gap = 6;
-  const width = data.length * (barW + gap) - gap;
-
+  
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible" }}>
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", height, width: "100%", gap: "6px" }}>
       {data.map((d, i) => {
-        const barH = Math.max((d.value / max) * (height - 4), d.value > 0 ? 4 : 2);
-        const x = i * (barW + gap);
-        const y = height - barH;
+        const barH = Math.max((d.value / max) * 100, d.value > 0 ? 12 : 4);
         const fill = d.hasDrift ? driftColor : color;
         return (
-          <g key={i}>
-            {/* Background track */}
-            <rect x={x} y={0} width={barW} height={height} rx={4} fill="var(--border)" />
-            {/* Value bar */}
-            <rect x={x} y={y} width={barW} height={barH} rx={4} fill={fill} style={{ transition: "height 0.6s ease, y 0.6s ease" }}>
-              <title>{d.label}: {d.value} run{d.value !== 1 ? "s" : ""}{d.hasDrift ? " · drift" : ""}</title>
-            </rect>
-          </g>
+          <div key={i} style={{ flex: 1, maxWidth: "24px", height: "100%", display: "flex", alignItems: "flex-end" }}>
+            <div
+              title={`${d.label}: ${d.value} run${d.value !== 1 ? "s" : ""}${d.hasDrift ? " · drift" : ""}`}
+              style={{
+                width: "100%",
+                height: `${barH}%`,
+                background: d.value > 0 ? fill : "var(--border)",
+                borderRadius: "4px",
+                transition: "height 0.6s ease",
+              }}
+            />
+          </div>
         );
       })}
-    </svg>
+    </div>
   );
 }
 

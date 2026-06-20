@@ -150,62 +150,70 @@ export function DashboardPage() {
       </div>
 
       {/* ── Charts row ── */}
-      {!loading && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: "16px" }}>
-
-          {/* 7-day activity sparkline */}
-          <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "16px 20px", boxShadow: "var(--shadow-sm)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
-              <div>
-                <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Last 7 days</div>
-                <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>Run Activity</h2>
-              </div>
-              <div style={{ display: "flex", gap: "12px", fontSize: "11px", color: "var(--text-muted)", alignItems: "center" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "8px", height: "8px", borderRadius: "2px", background: "var(--blue)", display: "inline-block" }} />Runs</span>
-                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "8px", height: "8px", borderRadius: "2px", background: "var(--amber)", display: "inline-block" }} />Drift</span>
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: "0", justifyContent: "space-between", paddingBottom: "4px" }}>
-              <SparkBar data={sparkData} height={72} color="var(--blue)" driftColor="var(--amber)" />
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px", paddingLeft: "16px", flexShrink: 0 }}>
-                {sparkData.map((d, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "16px", fontSize: "10px", color: "var(--text-muted)" }}>
-                    <span>{d.label.split(",")[0]}</span>
-                    <span style={{ fontWeight: 600, color: d.value > 0 ? "var(--text-secondary)" : "var(--border-strong)" }}>{d.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Status donut */}
-          <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "16px 20px", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "12px" }}>
-            <div>
-              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Breakdown</div>
-              <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>Run Status</h2>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-              <div style={{ position: "relative", flexShrink: 0 }}>
-                <DonutChart segments={donutSegments} size={88} thickness={13} />
-                {/* Center label */}
-                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-secondary)" }}>{runs.length}</span>
-                  <span style={{ fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>total</span>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: "16px" }}>
+        {loading ? (
+          <>
+            <SkeletonMetric />
+            <SkeletonMetric />
+          </>
+        ) : (
+          <>
+            {/* 7-day activity sparkline */}
+            <div className="premium-card" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "16px 20px", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+                <div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Last 7 days</div>
+                  <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>Run Activity</h2>
+                </div>
+                <div style={{ display: "flex", gap: "12px", fontSize: "11px", color: "var(--text-muted)", alignItems: "center" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "8px", height: "8px", borderRadius: "2px", background: "var(--blue)", display: "inline-block" }} />Runs</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "8px", height: "8px", borderRadius: "2px", background: "var(--amber)", display: "inline-block" }} />Drift</span>
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {donutSegments.map((seg) => (
-                  <div key={seg.label} style={{ display: "flex", alignItems: "center", gap: "7px", fontSize: "12px" }}>
-                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: seg.color, flexShrink: 0 }} />
-                    <span style={{ color: "var(--text-muted)" }}>{seg.label}</span>
-                    <span style={{ fontWeight: 700, color: "var(--text-secondary)", marginLeft: "auto", paddingLeft: "12px" }}>{seg.value}</span>
-                  </div>
-                ))}
+              <div style={{ display: "flex", alignItems: "flex-end", gap: "16px", justifyContent: "space-between", paddingBottom: "4px", flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0, height: "72px" }}>
+                  <SparkBar data={sparkData} height={72} color="var(--blue)" driftColor="var(--amber)" />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", paddingLeft: "16px", flexShrink: 0 }}>
+                  {sparkData.map((d, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "16px", fontSize: "10px", color: "var(--text-muted)" }}>
+                      <span>{d.label.split(",")[0]}</span>
+                      <span style={{ fontWeight: 600, color: d.value > 0 ? "var(--text-secondary)" : "var(--border-strong)" }}>{d.value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+
+            {/* Status donut */}
+            <div className="premium-card" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "16px 20px", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div>
+                <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Breakdown</div>
+                <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>Run Status</h2>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <DonutChart segments={donutSegments} size={88} thickness={13} />
+                  {/* Center label */}
+                  <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-secondary)" }}>{runs.length}</span>
+                    <span style={{ fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>total</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {donutSegments.map((seg) => (
+                    <div key={seg.label} style={{ display: "flex", alignItems: "center", gap: "7px", fontSize: "12px" }}>
+                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: seg.color, flexShrink: 0 }} />
+                      <span style={{ color: "var(--text-muted)" }}>{seg.label}</span>
+                      <span style={{ fontWeight: 700, color: "var(--text-secondary)", marginLeft: "auto", paddingLeft: "12px" }}>{seg.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* ── Main 2-col layout ── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: "16px" }}>
