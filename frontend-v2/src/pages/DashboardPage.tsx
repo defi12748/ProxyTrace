@@ -118,7 +118,7 @@ export function DashboardPage() {
       {/* ── KPI Metrics ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "16px" }}>
         {loading ? (
-          Array.from({ length: 5 }).map((_, i) => <SkeletonMetric key={i} />)
+          Array.from({ length: 4 }).map((_, i) => <SkeletonMetric key={i} />)
         ) : (
           <>
             <div className="animate-fade-in" style={{ "--stagger": "0ms" } as React.CSSProperties}>

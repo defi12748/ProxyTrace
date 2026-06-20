@@ -7,6 +7,7 @@ import {
   RotateCcw,
   Split,
   ChevronRight,
+  ShieldAlert,
 } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { Button } from "../components/ui/Button";
@@ -21,10 +22,14 @@ import { StrictReplayCard } from "../components/replay/StrictReplayCard";
 import { VerdictPanel } from "../components/replay/VerdictPanel";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { showToast } from "../components/ui/Toast";
+import { DriftCheckModal } from "../components/drift/DriftCheckModal";
+import { JiraIssueCard } from "../components/jira/JiraIssueCard";
 import { ProxyTraceApi, getInitialApiBase, compactId, formatDate } from "../api/client";
 import { pickFirstToolStep, ROUTE_OPTIONS } from "../lib/utils";
 import type {
+  DriftCheckResult,
   ExploratoryReplay,
+  JiraIssue,
   JsonObject,
   RunDetail,
   StrictReplay,
@@ -44,6 +49,7 @@ export function TraceDetailPage() {
   const [exploratoryReplay, setExploratoryReplay] = useState<ExploratoryReplay | null>(null);
   const [patchBoard, setPatchBoard] = useState("PLATFORM");
   const [busy, setBusy] = useState<string | null>(null);
+  const [driftModalOpen, setDriftModalOpen] = useState(false);
 
   const selectedStep = useMemo(() => {
     if (!detail) return null;
@@ -128,6 +134,17 @@ export function TraceDetailPage() {
     }
   }
 
+  async function runDriftCheck(): Promise<DriftCheckResult> {
+    const r = await api.post<DriftCheckResult>(`/runs/${runId}/drift/check-all`);
+    showToast("Drift check complete", "success");
+    return r;
+  }
+
+  async function fetchJiraIssue(issueKey: string): Promise<JiraIssue> {
+    const r = await api.get<{ issue: JiraIssue }>(`/jira/issues/${issueKey}`);
+    return r.issue;
+  }
+
   if (!detail && busy === "load") {
     return (
       <PageShell title={<Skeleton width="200px" height="28px" />}>
@@ -198,6 +215,14 @@ export function TraceDetailPage() {
           </Button>
           <Button variant="ghost" icon={<RefreshCw size={14} />} loading={busy === "load"} onClick={() => void loadDetail()}>
             Refresh
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<ShieldAlert size={13} />}
+            onClick={() => setDriftModalOpen(true)}
+          >
+            Re-evaluate Drift
           </Button>
           <Badge color={statusColor(run.status)}>{run.status}</Badge>
         </div>
@@ -376,8 +401,26 @@ export function TraceDetailPage() {
               </Button>
             </div>
           )}
+
+          {/* Jira issue card — shown when the run has a linked Jira key */}
+          {run.jira_issue_key && (
+            <JiraIssueCard
+              issueKey={run.jira_issue_key}
+              onFetch={fetchJiraIssue}
+            />
+          )}
         </div>
       </div>
+
+      {/* Drift Check Modal */}
+      {runId && (
+        <DriftCheckModal
+          isOpen={driftModalOpen}
+          onClose={() => setDriftModalOpen(false)}
+          runId={runId}
+          onRun={runDriftCheck}
+        />
+      )}
     </PageShell>
   );
 }

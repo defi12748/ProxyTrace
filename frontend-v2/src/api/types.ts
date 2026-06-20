@@ -93,3 +93,43 @@ export type RegressionRunResult = {
   failed: number;
   results: JsonObject[];
 };
+
+/* Drift check result from POST /runs/{run_id}/drift/check-all */
+export type DriftFinding = {
+  kind: string;
+  old_hash: string | null;
+  new_hash: string | null;
+  detail: string;
+};
+
+export type DriftStepResult = {
+  step_id: string;
+  step_index: number;
+  tool_name: string;
+  drifted: boolean;
+  finding_count: number;
+  findings: DriftFinding[];
+};
+
+export type DriftCheckResult = {
+  run_id: string;
+  steps_checked: number;
+  steps_drifted: number;
+  all_clear: boolean;
+  results: DriftStepResult[];
+};
+
+/* Jira issue from GET /jira/issues/{issue_key} */
+export type JiraIssue = {
+  key: string;
+  summary: string;
+  description: string | null;
+  status: string;
+  assignee: string | null;
+  reporter: string | null;
+  priority: string | null;
+  issue_type: string | null;
+  created: string | null;
+  updated: string | null;
+  url: string | null;
+};
