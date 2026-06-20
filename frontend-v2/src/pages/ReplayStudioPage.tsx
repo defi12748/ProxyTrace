@@ -15,6 +15,7 @@ import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { StrictReplayCard } from "../components/replay/StrictReplayCard";
 import { VerdictPanel } from "../components/replay/VerdictPanel";
+import { WorkflowGraph } from "../components/traces/WorkflowGraph";
 import { showToast } from "../components/ui/Toast";
 import { ProxyTraceApi, getInitialApiBase, compactId, formatDate } from "../api/client";
 import { stepName, stepSubtitle, pickFirstToolStep, ROUTE_OPTIONS } from "../lib/utils";
@@ -37,6 +38,7 @@ export function ReplayStudioPage() {
   const [patchBoard, setPatchBoard] = useState("PLATFORM");
   const [promotedId, setPromotedId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "graph">("graph");
 
   const patchStep = useMemo(
     () => (detail ? pickFirstToolStep(detail.steps, "get_project_key") : null),
@@ -286,17 +288,60 @@ export function ReplayStudioPage() {
           {exploratoryReplay && detail && (
             <Card>
               <CardHeader>
-                <span style={{ fontSize: "14px", fontWeight: 600 }}>Step Comparison</span>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <span style={{ fontSize: "11px", color: "var(--cyan)" }}>■ Original</span>
-                  <span style={{ fontSize: "11px", color: "var(--violet)" }}>■ Patched</span>
-                  <span style={{ fontSize: "11px", color: "var(--amber)" }}>■ Changed</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ fontSize: "14px", fontWeight: 600 }}>Workflow Visualizer</span>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <span style={{ fontSize: "11px", color: "var(--cyan)" }}>■ Original</span>
+                    <span style={{ fontSize: "11px", color: "var(--violet)" }}>■ Patched</span>
+                    <span style={{ fontSize: "11px", color: "var(--amber)" }}>■ Changed</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", background: "var(--bg-raised)", borderRadius: "var(--radius-md)", padding: "2px" }}>
+                  <button
+                    onClick={() => setViewMode("graph")}
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      borderRadius: "var(--radius-sm)",
+                      border: "none",
+                      background: viewMode === "graph" ? "var(--bg-surface)" : "transparent",
+                      color: viewMode === "graph" ? "var(--purple-text)" : "var(--text-muted)",
+                      boxShadow: viewMode === "graph" ? "var(--shadow-sm)" : "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Graph
+                  </button>
+                  <button
+                    onClick={() => setViewMode("list")}
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      borderRadius: "var(--radius-sm)",
+                      border: "none",
+                      background: viewMode === "list" ? "var(--bg-surface)" : "transparent",
+                      color: viewMode === "list" ? "var(--purple-text)" : "var(--text-muted)",
+                      boxShadow: viewMode === "list" ? "var(--shadow-sm)" : "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    List
+                  </button>
                 </div>
               </CardHeader>
               <CardBody style={{ padding: 0 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: "200px" }}>
-                  {/* Original */}
-                  <div style={{ borderRight: "1px solid var(--border)", padding: "12px" }}>
+                {viewMode === "graph" ? (
+                  <WorkflowGraph
+                    originalSteps={detail.steps}
+                    patchedSteps={patchedSteps}
+                    patchStep={patchStep}
+                  />
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: "200px" }}>
+                    {/* Original */}
+                    <div style={{ borderRight: "1px solid var(--border)", padding: "12px" }}>
                     <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--cyan)", marginBottom: "8px" }}>
                       Original
                     </div>
@@ -343,7 +388,8 @@ export function ReplayStudioPage() {
                       })}
                     </div>
                   </div>
-                </div>
+                  </div>
+                )}
               </CardBody>
             </Card>
           )}
