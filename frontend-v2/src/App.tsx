@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
 import { ToastContainer } from "./components/ui/Toast";
@@ -14,16 +14,16 @@ import { TourProvider, useTour } from "./components/tour/TourProvider";
 
 function GlobalTourTracker() {
   const { hasSeen, startTour } = useTour();
+  const location = useLocation();
 
   useEffect(() => {
-    // Only run on the dashboard route
-    if (window.location.pathname !== "/") return;
+    // Delay slightly so the page renders fully before spotlight measurement
+    const timer = setTimeout(() => {
+      const path = location.pathname;
 
-    if (!hasSeen("welcome-tour")) {
-      // Delay slightly so the page renders fully
-      setTimeout(() => {
+      if (path === "/" && !hasSeen("dashboard-tour")) {
         startTour({
-          id: "welcome-tour",
+          id: "dashboard-tour",
           steps: [
             {
               target: "tour-sidebar",
@@ -55,9 +55,71 @@ function GlobalTourTracker() {
             },
           ],
         });
-      }, 800);
-    }
-  }, [hasSeen, startTour]);
+      } else if (path === "/traces" && !hasSeen("traces-tour")) {
+        startTour({
+          id: "traces-tour",
+          steps: [
+            {
+              target: "tour-traces-search",
+              title: "Trace History",
+              description: "Here you can search and filter through all your past agent runs.",
+              placement: "bottom",
+              icon: "📋",
+            },
+            {
+              target: "tour-traces-list",
+              title: "Trace Details",
+              description: "Click on any trace row to open the Replay Studio and inspect the detailed execution steps.",
+              placement: "top",
+              icon: "🔍",
+            }
+          ]
+        });
+      } else if (path === "/drift" && !hasSeen("drift-tour")) {
+        startTour({
+          id: "drift-tour",
+          steps: [
+            {
+              target: "tour-drift-stats",
+              title: "Drift Analysis",
+              description: "This page automatically monitors your agent runs for unexpected deviations, such as missing tool calls or changed payload structures.",
+              placement: "bottom",
+              icon: "🛡️",
+            },
+            {
+              target: "tour-drift-list",
+              title: "Drift Alerts",
+              description: "Review individual drift events. You can dive into the exact step where the agent deviated from the baseline.",
+              placement: "top",
+              icon: "⚠️",
+            }
+          ]
+        });
+      } else if (path === "/regression" && !hasSeen("regression-tour")) {
+        startTour({
+          id: "regression-tour",
+          steps: [
+            {
+              target: "tour-regression-run-all",
+              title: "Automated Testing",
+              description: "You can save exploratory agent runs as Regression Tests. Use this button to re-run all your saved tests at once.",
+              placement: "bottom",
+              icon: "🧪",
+            },
+            {
+              target: "tour-regression-list",
+              title: "Test Suites",
+              description: "Each saved test tracks its pass/fail rate over time. Click 'Run' to execute an individual test suite.",
+              placement: "top",
+              icon: "📊",
+            }
+          ]
+        });
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [location.pathname, hasSeen, startTour]);
 
   return null;
 }
