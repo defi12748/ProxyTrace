@@ -10,6 +10,7 @@ import { SearchBar } from "../components/ui/SearchBar";
 import { Pagination } from "../components/ui/Pagination";
 import { CountUp } from "../components/ui/CountUp";
 import { SkeletonMetric, Skeleton } from "../components/ui/Skeleton";
+import { StructuredJson } from "../components/ui/StructuredJson";
 import { showToast } from "../components/ui/Toast";
 import { ProxyTraceApi, getInitialApiBase, formatDate, compactId } from "../api/client";
 import type { Warning } from "../api/types";
@@ -135,10 +136,35 @@ export function DriftPage() {
             <span style={{ fontSize: "14px", fontWeight: 600 }}>Drift Warnings</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search warnings…" />
+            <SearchBar value={search} onChange={(v: string) => { setSearch(v); setPage(1); }} placeholder="Search warnings…" />
             <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Click a row to expand</span>
           </div>
         </CardHeader>
+
+        {/* Action Required Banner */}
+        {rows.length > 0 && !loading && (
+          <div
+            style={{
+              padding: "12px 16px",
+              background: "rgba(251, 191, 36, 0.1)",
+              borderBottom: "1px solid rgba(251, 191, 36, 0.2)",
+              display: "flex",
+              gap: "10px",
+              alignItems: "flex-start",
+            }}
+          >
+            <ShieldAlert size={16} style={{ color: "var(--amber)", marginTop: "2px" }} />
+            <div>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--amber)", marginBottom: "4px" }}>
+                Action Required
+              </div>
+              <div style={{ fontSize: "12px", color: "var(--text-primary)", lineHeight: 1.5 }}>
+                The agent's real-world behavior deviated from its recorded contracts. 
+                Investigate the payloads below to determine if the agent's schema needs updating.
+              </div>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div>
@@ -307,6 +333,29 @@ export function DriftPage() {
                           </span>
                         </div>
                       ))}
+                      
+                      {(() => {
+                        let parsedDetails: unknown = null;
+                        try {
+                          parsedDetails = JSON.parse(row.details);
+                        } catch (e) {
+                          // Not JSON
+                        }
+                        
+                        if (parsedDetails && typeof parsedDetails === "object") {
+                          return (
+                            <div style={{ marginTop: "8px" }}>
+                              <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "8px" }}>
+                                Warning Details
+                              </div>
+                              <div style={{ background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "12px", overflowX: "auto", fontSize: "12px", fontFamily: "var(--font-mono)" }}>
+                                <StructuredJson data={parsedDetails} initiallyExpanded={true} />
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                   )}
                 </div>

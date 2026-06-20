@@ -12,7 +12,7 @@ import { PageShell } from "../components/layout/PageShell";
 import { Button } from "../components/ui/Button";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
-import { CodeBlock } from "../components/ui/CodeBlock";
+import { StructuredJson } from "../components/ui/StructuredJson";
 import { CountUp } from "../components/ui/CountUp";
 import { SkeletonMetric, Skeleton } from "../components/ui/Skeleton";
 import { showToast } from "../components/ui/Toast";
@@ -48,6 +48,20 @@ export function RegressionPage() {
     setBusy("run");
     try {
       const res = await api.post<RegressionRunResult>("/regression/run-all");
+      setRunResult(res);
+      showToast(`${res.passed}/${res.total} tests passed`, res.failed === 0 ? "success" : "error");
+      await load();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Run failed", "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+  
+  async function runTest(testId: string) {
+    setBusy(testId);
+    try {
+      const res = await api.post<RegressionRunResult>(`/regression/${testId}/run`);
       setRunResult(res);
       showToast(`${res.passed}/${res.total} tests passed`, res.failed === 0 ? "success" : "error");
       await load();
@@ -225,7 +239,7 @@ export function RegressionPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "130px 130px 130px 80px 80px 1fr 120px",
+                gridTemplateColumns: "130px 130px 130px 80px 80px 1fr 120px 40px",
                 gap: "8px",
                 padding: "8px 16px",
                 borderBottom: "1px solid var(--border)",
@@ -243,6 +257,7 @@ export function RegressionPage() {
               <span>Failed</span>
               <span>Promoted</span>
               <span>Last Run</span>
+              <span></span>
             </div>
 
             {regressions.map((reg) => {
@@ -255,23 +270,23 @@ export function RegressionPage() {
                     onClick={() => setExpandedId(expanded ? null : reg.test_id)}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "130px 130px 130px 80px 80px 1fr 120px",
+                      gridTemplateColumns: "130px 130px 130px 80px 80px 1fr 120px 40px",
                       gap: "8px",
                       padding: "11px 16px",
                       width: "100%",
                       textAlign: "left",
-                    border: "none",
+                      border: "none",
                       borderBottom: "1px solid var(--border)",
-                      background: expanded ? "var(--bg-raised)" : "transparent",
+                      background: expanded ? "var(--bg-raised)" : hasFailures ? "rgba(248, 113, 113, 0.05)" : "transparent",
                       cursor: "pointer",
                       transition: "background var(--transition)",
                       alignItems: "center",
                     }}
                     onMouseEnter={(e) => {
-                      if (!expanded) e.currentTarget.style.background = "var(--bg-raised)";
+                      if (!expanded) e.currentTarget.style.background = hasFailures ? "rgba(248, 113, 113, 0.1)" : "var(--bg-raised)";
                     }}
                     onMouseLeave={(e) => {
-                      if (!expanded) e.currentTarget.style.background = "transparent";
+                      if (!expanded) e.currentTarget.style.background = hasFailures ? "rgba(248, 113, 113, 0.05)" : "transparent";
                     }}
                   >
                     <span style={{ fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
@@ -290,7 +305,7 @@ export function RegressionPage() {
 
                     {/* Pass count */}
                     <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                      <CheckCircle2 size={12} style={{ color: "var(--green-text)" }} />
+                      <span style={{ display: "grid", placeItems: "center", width: "16px", height: "16px", borderRadius: "50%", background: "var(--green)", color: "#000", fontSize: "10px", fontWeight: 900 }}>✓</span>
                       <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--green-text)" }}>
                         {reg.pass_count}
                       </span>
@@ -298,10 +313,16 @@ export function RegressionPage() {
 
                     {/* Fail count */}
                     <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                      {hasFailures && <XCircle size={12} style={{ color: "var(--rose-text)" }} />}
-                      <span style={{ fontSize: "13px", fontWeight: 700, color: hasFailures ? "var(--rose-text)" : "var(--text-muted)" }}>
-                        {reg.fail_count}
-                      </span>
+                      {hasFailures ? (
+                        <>
+                          <span style={{ display: "grid", placeItems: "center", width: "16px", height: "16px", borderRadius: "50%", background: "var(--rose)", color: "#fff", fontSize: "10px", fontWeight: 900 }}>✕</span>
+                          <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--rose-text)" }}>
+                            {reg.fail_count}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-muted)" }}>0</span>
+                      )}
                     </span>
 
                     <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
@@ -310,6 +331,34 @@ export function RegressionPage() {
                     <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                       {formatDate(reg.last_run_at)}
                     </span>
+                    
+                    {/* Play Button */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); void runTest(reg.test_id); }}
+                      disabled={busy === reg.test_id}
+                      style={{
+                        background: "var(--bg-surface)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                        padding: "6px",
+                        display: "grid",
+                        placeItems: "center",
+                        cursor: "pointer",
+                        color: "var(--text-secondary)",
+                        transition: "all var(--transition)",
+                        opacity: busy === reg.test_id ? 0.5 : 1
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = "var(--green)";
+                        e.currentTarget.style.borderColor = "var(--green)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = "var(--text-secondary)";
+                        e.currentTarget.style.borderColor = "var(--border)";
+                      }}
+                    >
+                      {busy === reg.test_id ? <RefreshCw size={14} className="spin" /> : <PlayCircle size={14} />}
+                    </button>
                   </button>
 
                   {/* Expanded assertions */}
@@ -325,7 +374,9 @@ export function RegressionPage() {
                       <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: "8px" }}>
                         Frozen Assertions
                       </div>
-                      <CodeBlock value={reg.assertions} collapsed={false} maxHeight="200px" />
+                      <div style={{ background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "12px", overflowX: "auto", fontSize: "12px", fontFamily: "var(--font-mono)" }}>
+                        <StructuredJson data={reg.assertions} initiallyExpanded={true} />
+                      </div>
                     </div>
                   )}
                 </div>
