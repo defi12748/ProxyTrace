@@ -191,8 +191,7 @@ export function WorkflowGraph({
     <div
       style={{
         width: "100%",
-        height: "100%",
-        minHeight: "400px",
+        height: "600px",
         background: "var(--bg-base)",
         borderRadius: "var(--radius-lg)",
         overflow: "hidden",
