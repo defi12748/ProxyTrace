@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CountUp } from "./CountUp";
 
 interface MetricProps {
   label: string;
@@ -8,10 +9,16 @@ interface MetricProps {
   iconBg?: string;
   delta?: string;
   deltaColor?: string;
+  /** If true (default), animate numeric values with CountUp */
+  animate?: boolean;
 }
 
-/* Matches dotrack StatCard pattern exactly */
-export function Metric({ label, value, subtitle, icon, iconBg, delta, deltaColor }: MetricProps) {
+/* Matches dotrack StatCard pattern — with animated CountUp for numeric values */
+export function Metric({ label, value, subtitle, icon, iconBg, delta, deltaColor, animate = true }: MetricProps) {
+  const animatedValue = animate && typeof value === "number"
+    ? <CountUp to={value} />
+    : value;
+
   return (
     <div
       style={{
@@ -23,7 +30,11 @@ export function Metric({ label, value, subtitle, icon, iconBg, delta, deltaColor
         flexDirection: "column",
         justifyContent: "space-between",
         gap: "8px",
+        boxShadow: "var(--shadow-sm)",
+        transition: "box-shadow var(--transition)",
       }}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-md)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-sm)"; }}
     >
       {/* Top row: label + icon */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -55,9 +66,9 @@ export function Metric({ label, value, subtitle, icon, iconBg, delta, deltaColor
         )}
       </div>
 
-      {/* Main value */}
+      {/* Main value — animated if numeric */}
       <div style={{ fontSize: "24px", fontWeight: 600, color: "var(--text-secondary)" }}>
-        {value}
+        {animatedValue}
       </div>
 
       {/* Delta row */}

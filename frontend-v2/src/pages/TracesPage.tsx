@@ -7,8 +7,10 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { SearchBar } from "../components/ui/SearchBar";
 import { SortDropdown } from "../components/ui/SortDropdown";
+import { StatusTabs } from "../components/ui/StatusTabs";
 import { Pagination } from "../components/ui/Pagination";
 import { EmptyState } from "../components/ui/EmptyState";
+import { SkeletonRow } from "../components/ui/Skeleton";
 import { showToast } from "../components/ui/Toast";
 import { ProxyTraceApi, getInitialApiBase } from "../api/client";
 import type { Run } from "../api/types";
@@ -31,7 +33,9 @@ export function TracesPage() {
   const [issueFilter, setIssueFilter] = useState("");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
+  const [statusTab, setStatusTab] = useState("all");
   const [traceKey, setTraceKey] = useState("");
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
@@ -48,6 +52,7 @@ export function TracesPage() {
       showToast(err instanceof Error ? err.message : "Failed to load runs", "error");
     } finally {
       setBusy(null);
+      setLoading(false);
     }
   }, [api, issueFilter]);
 
@@ -71,6 +76,9 @@ export function TracesPage() {
 
   /* Filter + sort + paginate client-side */
   const filtered = runs.filter((r) => {
+    // Status tab filter
+    if (statusTab !== "all" && r.status !== statusTab) return false;
+    // Search filter
     const q = search.toLowerCase();
     if (!q) return true;
     return (
@@ -84,11 +92,19 @@ export function TracesPage() {
     if (sortKey === "oldest")  return new Date(a.started_at ?? 0).getTime() - new Date(b.started_at ?? 0).getTime();
     if (sortKey === "status")  return a.status.localeCompare(b.status);
     if (sortKey === "issue")   return (a.jira_issue_key ?? "").localeCompare(b.jira_issue_key ?? "");
-    return new Date(b.started_at ?? 0).getTime() - new Date(a.started_at ?? 0).getTime(); // newest default
+    return new Date(b.started_at ?? 0).getTime() - new Date(a.started_at ?? 0).getTime();
   });
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Tab counts
+  const tabCounts = {
+    all: runs.length,
+    completed: runs.filter((r) => r.status === "completed").length,
+    running:   runs.filter((r) => r.status === "running").length,
+    failed:    runs.filter((r) => r.status === "failed").length,
+  };
 
   return (
     <PageShell
@@ -106,7 +122,19 @@ export function TracesPage() {
         </Button>
       }
     >
-      {/* Toolbar — matching dotrack filter toolbar layout */}
+      {/* Status filter tabs — dotrack-style pill filters */}
+      <StatusTabs
+        active={statusTab}
+        onChange={(v) => { setStatusTab(v); setPage(1); }}
+        tabs={[
+          { value: "all",       label: "All Runs",  count: tabCounts.all },
+          { value: "completed", label: "Completed",  count: tabCounts.completed },
+          { value: "running",   label: "Running",    count: tabCounts.running },
+          { value: "failed",    label: "Failed",     count: tabCounts.failed },
+        ]}
+      />
+
+      {/* Toolbar */}
       <div
         style={{
           display: "flex",
@@ -169,7 +197,11 @@ export function TracesPage() {
       </div>
 
       {/* Run grid */}
-      {paged.length === 0 && busy !== "load" ? (
+      {loading ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "10px" }}>
+          {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
+        </div>
+      ) : paged.length === 0 ? (
         <EmptyState
           icon={<Database size={22} />}
           title="No runs found"
