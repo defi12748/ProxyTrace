@@ -13,14 +13,20 @@ import type { JsonObject, Step } from "../../api/types";
 
 interface WorkflowGraphProps {
   originalSteps: Step[];
-  patchedSteps: JsonObject[];
-  patchStep: number | null;
+  patchedSteps?: JsonObject[];
+  patchStep?: number | null;
+  height?: string;
+  compact?: boolean;
+  onNodeClick?: (stepId: string) => void;
 }
 
 export function WorkflowGraph({
   originalSteps,
-  patchedSteps,
-  patchStep,
+  patchedSteps = [],
+  patchStep = null,
+  height = "600px",
+  compact = false,
+  onNodeClick,
 }: WorkflowGraphProps) {
   const { nodes, edges } = useMemo(() => {
     const nds: Node[] = [];
@@ -113,6 +119,7 @@ export function WorkflowGraph({
         id: `o-${step.step_index}`,
         position: { x: 40, y: index * 100 },
         data: {
+          stepId: step.step_id,
           label: renderLabel(step.step_index, stepName(step), stepSubtitle(step), false),
         },
         style: isPatchPoint ? patchPointStyle : nodeStyle,
@@ -144,6 +151,7 @@ export function WorkflowGraph({
           id: `p-${stepIndex}`,
           position: { x: 380, y: index * 100 },
           data: {
+            stepId: step.step_id,
             label: renderLabel(
               stepIndex,
               stepName(step),
@@ -191,36 +199,48 @@ export function WorkflowGraph({
     <div
       style={{
         width: "100%",
-        height: "600px",
+        height,
         background: "var(--bg-base)",
         borderRadius: "var(--radius-lg)",
         overflow: "hidden",
         border: "1px solid var(--border)",
       }}
     >
-      <ReactFlow nodes={nodes} edges={edges} fitView minZoom={0.5} maxZoom={1.5}>
+      <ReactFlow 
+        nodes={nodes} 
+        edges={edges} 
+        fitView 
+        minZoom={0.5} 
+        maxZoom={1.5} 
+        proOptions={{ hideAttribution: true }}
+        onNodeClick={onNodeClick ? (_e, node) => onNodeClick(node.data.stepId as string) : undefined}
+      >
         <Background color="var(--border-strong)" gap={16} size={1} />
-        <Controls
-          style={{
-            boxShadow: "var(--shadow-md)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md)",
-          }}
-        />
-        <MiniMap
-          nodeColor={(n) => {
-            if (n.style?.background?.toString().includes("var(--purple)"))
-              return "#B882FE";
-            return "#B3B4C6";
-          }}
-          maskColor="rgba(245, 246, 248, 0.6)"
-          style={{
-            boxShadow: "var(--shadow-md)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md)",
-            background: "var(--bg-surface)",
-          }}
-        />
+        {!compact && (
+          <>
+            <Controls
+              style={{
+                boxShadow: "var(--shadow-md)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-md)",
+              }}
+            />
+            <MiniMap
+              nodeColor={(n) => {
+                if (n.style?.background?.toString().includes("var(--purple)"))
+                  return "#B882FE";
+                return "#B3B4C6";
+              }}
+              maskColor="rgba(245, 246, 248, 0.6)"
+              style={{
+                boxShadow: "var(--shadow-md)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-md)",
+                background: "var(--bg-surface)",
+              }}
+            />
+          </>
+        )}
       </ReactFlow>
     </div>
   );

@@ -27,11 +27,13 @@ export function Card({ children, style, className = "" }: CardProps) {
 interface CardHeaderProps {
   children: ReactNode;
   style?: CSSProperties;
+  onClick?: () => void;
 }
 
-export function CardHeader({ children, style }: CardHeaderProps) {
+export function CardHeader({ children, style, onClick }: CardHeaderProps) {
   return (
     <div
+      onClick={onClick}
       style={{
         display: "flex",
         alignItems: "center",

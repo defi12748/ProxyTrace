@@ -1,14 +1,17 @@
 
 import { StructuredJson } from "../ui/StructuredJson";
+import { JsonDiff } from "../ui/JsonDiff";
+import { LLMInspector } from "./LLMInspector";
 import { Badge, statusColor } from "../ui/Badge";
 import { stepStory, formatFactValue } from "../../lib/utils";
 import type { Step } from "../../api/types";
 
 interface StepInspectorProps {
   step: Step;
+  previousStep?: Step;
 }
 
-export function StepInspector({ step }: StepInspectorProps) {
+export function StepInspector({ step, previousStep }: StepInspectorProps) {
   const story = stepStory(step);
   const isLlm = step.step_type === "llm";
 
@@ -120,22 +123,21 @@ export function StepInspector({ step }: StepInspectorProps) {
 
       {/* Raw JSON */}
       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-        <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginTop: "8px" }}>
-          Payload
-        </div>
-        <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "12px", overflowX: "auto", fontSize: "12px", fontFamily: "var(--font-mono)" }}>
-          <StructuredJson data={step.payload} initiallyExpanded={true} />
-        </div>
-        
-        {step.snapshot && Object.keys(step.snapshot).length > 0 && (
+        {isLlm ? (
+          <LLMInspector payload={step.payload} />
+        ) : (
           <>
             <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginTop: "8px" }}>
-              Snapshot
+              Payload
             </div>
             <div style={{ background: "var(--bg-raised)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "12px", overflowX: "auto", fontSize: "12px", fontFamily: "var(--font-mono)" }}>
-              <StructuredJson data={step.snapshot} initiallyExpanded={false} />
+              <StructuredJson data={step.payload} initiallyExpanded={true} />
             </div>
           </>
+        )}
+        
+        {step.snapshot && Object.keys(step.snapshot).length > 0 && (
+          <JsonDiff title="Recorded state snapshot" oldValue={previousStep?.snapshot} newValue={step.snapshot} />
         )}
       </div>
     </div>

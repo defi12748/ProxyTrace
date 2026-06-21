@@ -278,7 +278,10 @@ export function TraceDetailPage() {
             </CardHeader>
             <CardBody>
               {selectedStep ? (
-                <StepInspector step={selectedStep} />
+                <StepInspector 
+                  step={selectedStep} 
+                  previousStep={detail.steps.indexOf(selectedStep) > 0 ? detail.steps[detail.steps.indexOf(selectedStep) - 1] : undefined}
+                />
               ) : (
                 <EmptyState icon={<GitBranch size={20} />} title="Select a step" description="Click a step in the timeline." />
               )}

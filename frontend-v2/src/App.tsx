@@ -11,6 +11,8 @@ import { ReplayStudioPage } from "./pages/ReplayStudioPage";
 import { DriftPage } from "./pages/DriftPage";
 import { RegressionPage } from "./pages/RegressionPage";
 import { TourProvider, useTour } from "./components/tour/TourProvider";
+import { JiraPanelApp } from "./pages/JiraPanelApp";
+import { useState } from "react";
 
 function GlobalTourTracker() {
   const { hasSeen, startTour } = useTour();
@@ -159,6 +161,64 @@ export function App() {
 }
 
 export function AppWrapper() {
+  const [isForge, setIsForge] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Check if user wants to force the panel preview locally
+    if (window.location.pathname === "/panel-preview") {
+      setIsForge(true);
+      return;
+    }
+
+    // Check if we're running inside the Atlassian Forge environment
+    import("@forge/bridge")
+      .then(({ view }) => {
+        view.getContext()
+          .then((context) => {
+            setIsForge(Boolean(context));
+          })
+          .catch(() => {
+            setIsForge(false);
+          });
+      })
+      .catch(() => {
+        setIsForge(false);
+      });
+  }, []);
+
+  if (isForge === null) {
+    return null; // Loading environment state
+  }
+
+  if (isForge) {
+    if (window.location.pathname === "/panel-preview") {
+      return (
+        <div style={{ 
+          width: "350px", 
+          margin: "40px auto", 
+          border: "1px solid var(--border-strong)", 
+          borderRadius: "var(--radius-lg)", 
+          boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+          background: "var(--bg-base)",
+          overflow: "hidden",
+          minHeight: "500px"
+        }}>
+          <div style={{ background: "var(--bg-surface)", padding: "10px", borderBottom: "1px solid var(--border)", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textAlign: "center" }}>
+            Jira Sidebar Preview (350px)
+          </div>
+          <JiraPanelApp />
+          <ToastContainer />
+        </div>
+      );
+    }
+    return (
+      <>
+        <JiraPanelApp />
+        <ToastContainer />
+      </>
+    );
+  }
+
   return (
     <TourProvider>
       <App />

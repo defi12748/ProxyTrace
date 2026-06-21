@@ -44,7 +44,7 @@ export function StrictReplayCard({ replay }: StrictReplayCardProps) {
       </div>
 
       {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
         {[
           { icon: <Percent size={13} />, label: "Determinism", value: rateLabel, accent: isClean ? "var(--green-text)" : "var(--amber-text)" },
           { icon: <Zap size={13} />, label: "Live Calls", value: String(v.live_call_count ?? "—") },
@@ -53,6 +53,7 @@ export function StrictReplayCard({ replay }: StrictReplayCardProps) {
           <div
             key={label}
             style={{
+              flex: "1 1 80px",
               padding: "10px",
               background: "var(--bg-surface)",
               border: "1px solid var(--border)",

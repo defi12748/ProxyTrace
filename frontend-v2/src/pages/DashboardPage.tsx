@@ -116,29 +116,29 @@ export function DashboardPage() {
       }
     >
       {/* ── KPI Metrics ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "16px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonMetric key={i} />)
         ) : (
           <>
-            <div className="animate-fade-in" style={{ "--stagger": "0ms" } as React.CSSProperties}>
+            <div className="animate-fade-in" style={{ "--stagger": "0ms", flex: "1 1 200px" } as React.CSSProperties}>
               <Metric label="Total" subtitle="Runs" value={runs.length}
                 icon={<Database size={18} style={{ color: "#172A54" }} />} iconBg="#BFD3FE"
                 delta={`Last ${runs.length} recorded`} deltaColor="var(--blue-text)" />
             </div>
-            <div className="animate-fade-in" style={{ "--stagger": "50ms" } as React.CSSProperties}>
+            <div className="animate-fade-in" style={{ "--stagger": "50ms", flex: "1 1 200px" } as React.CSSProperties}>
               <Metric label="Drift" subtitle="Warnings" value={driftCount}
                 icon={<AlertTriangle size={18} style={{ color: "#92400e" }} />} iconBg="var(--amber-dim)"
                 delta={driftCount > 0 ? "Schema violations found" : "All contracts OK"}
                 deltaColor={driftCount > 0 ? "var(--amber-text)" : "var(--green-text)"} />
             </div>
-            <div className="animate-fade-in" style={{ "--stagger": "100ms" } as React.CSSProperties}>
+            <div className="animate-fade-in" style={{ "--stagger": "100ms", flex: "1 1 200px" } as React.CSSProperties}>
               <Metric label="Regression" subtitle="Tests" value={regressions.length}
                 icon={<BadgeCheck size={18} style={{ color: "var(--purple-text)" }} />} iconBg="var(--purple-dim)"
                 delta={`${passCount} passing · ${failCount} failing`}
                 deltaColor={failCount > 0 ? "var(--rose-text)" : "var(--green-text)"} />
             </div>
-            <div className="animate-fade-in" style={{ "--stagger": "150ms" } as React.CSSProperties}>
+            <div className="animate-fade-in" style={{ "--stagger": "150ms", flex: "1 1 200px" } as React.CSSProperties}>
               <Metric label="Pass" subtitle="Rate"
                 value={passRate !== null ? `${passRate}%` : "—"} animate={false}
                 icon={<ShieldCheck size={18} style={{ color: "var(--green-text)" }} />} iconBg="var(--green-dim)"
@@ -150,7 +150,7 @@ export function DashboardPage() {
       </div>
 
       {/* ── Charts row ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: "16px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
         {loading ? (
           <>
             <SkeletonMetric />
@@ -159,7 +159,7 @@ export function DashboardPage() {
         ) : (
           <>
             {/* 7-day activity sparkline */}
-            <div className="premium-card animate-fade-in" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "16px 20px", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", "--stagger": "100ms" } as React.CSSProperties}>
+            <div className="premium-card animate-fade-in" style={{ flex: "1 1 400px", background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "16px 20px", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", "--stagger": "100ms" } as React.CSSProperties}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
                 <div>
                   <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Last 7 days</div>
@@ -178,7 +178,7 @@ export function DashboardPage() {
             </div>
 
             {/* Status donut */}
-            <div className="premium-card animate-fade-in" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "16px 20px", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "12px", "--stagger": "150ms" } as React.CSSProperties}>
+            <div className="premium-card animate-fade-in" style={{ flex: "1 1 280px", background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "16px 20px", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "12px", "--stagger": "150ms" } as React.CSSProperties}>
               <div>
                 <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Breakdown</div>
                 <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>Run Status</h2>
@@ -208,10 +208,10 @@ export function DashboardPage() {
       </div>
 
       {/* ── Main 2-col layout ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: "16px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
 
         {/* Recent runs */}
-        <div id="tour-recent-traces" className="premium-card animate-fade-in" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-sm)", "--stagger": "200ms" } as React.CSSProperties}>
+        <div id="tour-recent-traces" className="premium-card animate-fade-in" style={{ flex: "1 1 400px", background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-sm)", "--stagger": "200ms" } as React.CSSProperties}>
           <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <span style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Recent</span>
@@ -233,7 +233,7 @@ export function DashboardPage() {
         </div>
 
         {/* Right column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+        <div style={{ flex: "1 1 340px", display: "flex", flexDirection: "column", gap: "14px" }}>
 
           {/* Quick trace */}
           <div id="tour-quick-trace" className="premium-card animate-fade-in" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-sm)", "--stagger": "250ms" } as React.CSSProperties}>

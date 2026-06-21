@@ -138,9 +138,9 @@ export function ReplayStudioPage() {
         </div>
       }
     >
-      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: "16px", alignItems: "start" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "start" }}>
         {/* Left column — controls */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+        <div style={{ flex: "1 1 340px", display: "flex", flexDirection: "column", gap: "14px" }}>
           {/* Safe replay card */}
           <Card>
             <CardHeader>
@@ -264,8 +264,8 @@ export function ReplayStudioPage() {
           )}
         </div>
 
-        {/* Right column — diff + verdict */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+        {/* Right column — timeline and graph */}
+        <div style={{ flex: "2 1 500px", display: "flex", flexDirection: "column", gap: "16px", minWidth: 0 }}>
           {/* AI Verdict */}
           {exploratoryReplay && (
             <Card>
@@ -341,6 +341,15 @@ export function ReplayStudioPage() {
                     originalSteps={detail.steps}
                     patchedSteps={patchedSteps}
                     patchStep={patchStep}
+                    onNodeClick={(stepId) => {
+                      setViewMode("list");
+                      setTimeout(() => {
+                        const idx = detail.steps.find(s => s.step_id === stepId)?.step_index;
+                        if (idx) {
+                          document.getElementById(`step-row-${idx}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }
+                      }, 50);
+                    }}
                   />
                 ) : (
                   <div style={{ display: "grid", gridTemplateColumns: exploratoryReplay ? "1fr 1fr" : "1fr", minHeight: "200px" }}>
@@ -357,6 +366,7 @@ export function ReplayStudioPage() {
                         );
                         return (
                           <DiffRow
+                            id={`step-row-${step.step_index}`}
                             key={step.step_id}
                             index={step.step_index}
                             name={stepName(step)}
@@ -382,6 +392,7 @@ export function ReplayStudioPage() {
                         const isUnverified = Boolean(step.unverified);
                         return (
                           <DiffRow
+                            id={`step-row-patched-${stepIndex}`}
                             key={stepIndex}
                             index={stepIndex}
                             name={stepName(step)}
@@ -427,12 +438,14 @@ export function ReplayStudioPage() {
 }
 
 function DiffRow({
+  id,
   index,
   name,
   subtitle,
   type,
   highlight,
 }: {
+  id?: string;
   index: number;
   name: string;
   subtitle: string;
@@ -449,12 +462,12 @@ function DiffRow({
   const hlBg = {
     patch: "rgba(251,191,36,0.07)",
     affected: "rgba(167,139,250,0.07)",
-    unverified: "rgba(248,113,113,0.07)",
+    unverified: "rgba(244,63,94,0.07)",
     none: "transparent",
   }[highlight];
 
   return (
-    <div style={{ position: "relative" }}>
+    <div id={id} style={{ position: "relative" }}>
       {highlight === "patch" && (
         <div
           style={{
