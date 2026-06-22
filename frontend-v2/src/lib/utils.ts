@@ -3,7 +3,7 @@
    (All functions preserved verbatim from frontend/src/App.tsx)
    ============================================================ */
 
-import type { JsonObject, Step } from "../api/types";
+import type { JsonObject, Step, Warning } from "../api/types";
 import { asRecord } from "../api/client";
 import type { Edge, Node } from "@xyflow/react";
 import type { ReactNode } from "react";
@@ -20,6 +20,27 @@ export const ROUTE_OPTIONS = [
   { value: "BILLING", label: "Billing" },
   { value: "INFRA", label: "Infrastructure" },
 ];
+
+export function warningSummary(warning: Warning): string {
+  const tool = warning.details.match(/for ['"]([^'"]+)['"]/)?.[1];
+  const step = warning.details.match(/at step (\d+)/i)?.[1];
+  const subject = tool
+    ? `${tool}${step ? ` at step ${step}` : ""}`
+    : step
+      ? `The tool call at step ${step}`
+      : "A recorded tool call";
+
+  if (warning.warning_type.includes("output_schema")) {
+    return `${subject} returned data in a different format. Replay results may be affected.`;
+  }
+  if (warning.warning_type.includes("input_schema")) {
+    return `${subject} received data in a different format. Replay results may be affected.`;
+  }
+  if (warning.warning_type.includes("descriptor")) {
+    return `${subject} has a changed tool definition. Review this run before relying on replay results.`;
+  }
+  return `${subject} changed from the recorded workflow baseline.`;
+}
 
 /* ---- Step display helpers ---- */
 

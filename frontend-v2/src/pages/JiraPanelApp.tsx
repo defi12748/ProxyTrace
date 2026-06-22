@@ -11,7 +11,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { WorkflowGraph } from "../components/traces/WorkflowGraph";
 import { StepInspector } from "../components/traces/StepInspector";
 import { showToast } from "../components/ui/Toast";
-import { stepName, stepSubtitle, pickFirstToolStep, ROUTE_OPTIONS } from "../lib/utils";
+import { stepName, stepSubtitle, pickFirstToolStep, ROUTE_OPTIONS, warningSummary } from "../lib/utils";
 
 
 
@@ -400,7 +400,7 @@ export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: strin
               {driftWarnings.length} Workflow Drift Warning{driftWarnings.length === 1 ? "" : "s"}
             </span>
             <span style={{ fontSize: "12px", color: "var(--amber-text)", opacity: 0.9 }}>
-              {driftWarnings[0]?.details || "A recorded tool contract changed from this run's baseline."}
+              {warningSummary(driftWarnings[0])}
             </span>
           </div>
         </div>
