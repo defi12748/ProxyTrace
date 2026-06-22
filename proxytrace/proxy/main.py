@@ -11,6 +11,7 @@ from proxytrace.contracts.registry import ensure_default_contracts
 from proxytrace.db.session import SessionLocal
 from proxytrace.proxy.frontend import mount_frontend
 from proxytrace.proxy.routes import drift, health, jira, llm, mcp, regression, replay, runs
+from proxytrace.settings import get_settings
 
 
 @asynccontextmanager
@@ -28,10 +29,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_settings = get_settings()
+_cors_origins = (
+    list(_settings.cors_allowed_origins) if _settings.auth_required else ["*"]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_origin_regex=(
+        _settings.cors_allow_origin_regex if _settings.auth_required else None
+    ),
+    allow_credentials=_settings.auth_required,
     allow_methods=["*"],
     allow_headers=["*"],
 )

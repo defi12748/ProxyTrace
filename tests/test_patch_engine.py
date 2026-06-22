@@ -44,7 +44,7 @@ def sample_steps():
     ]
 
 
-def test_tool_result_patch_propagates_project_key_to_update_ticket() -> None:
+def test_patch_engine_does_not_fabricate_downstream_propagation() -> None:
     result = PatchEngine().apply(
         sample_steps(),
         patch_step=2,
@@ -55,15 +55,11 @@ def test_tool_result_patch_propagates_project_key_to_update_ticket() -> None:
     )
 
     update_step = result["patched_steps"][3]
-    assert result["propagation"] == {
-        "applied": True,
-        "strategy": "propagate_project_key_to_update_ticket",
-        "board": "PLATFORM",
-        "affected_steps": [4],
-    }
-    assert update_step["payload"]["params"]["board"] == "PLATFORM"
-    assert update_step["payload"]["response"]["board"] == "PLATFORM"
-    assert update_step["unverified"] is True
+    assert result["propagation"]["strategy"] == "agent_reexecution_required"
+    assert result["propagation"]["applied"] is False
+    assert update_step["payload"]["params"]["board"] == "INFRA"
+    assert update_step["payload"]["response"]["board"] == "INFRA"
+    assert update_step["unverified"] is False
 
 
 def test_divergence_diff_reports_final_state_change() -> None:
@@ -79,13 +75,13 @@ def test_divergence_diff_reports_final_state_change() -> None:
 
     diff = DivergenceDiff().compare(steps, patch_result["patched_steps"])
 
-    assert diff["trajectory_diff"]["changed_step_count"] == 2
-    assert diff["semantic_outcome_diff"]["changed"] is True
+    assert diff["trajectory_diff"]["changed_step_count"] == 1
+    assert diff["semantic_outcome_diff"]["changed"] is False
     assert diff["semantic_outcome_diff"]["original_final_state"]["board"] == "INFRA"
-    assert diff["semantic_outcome_diff"]["patched_final_state"]["board"] == "PLATFORM"
+    assert diff["semantic_outcome_diff"]["patched_final_state"]["board"] == "INFRA"
 
 
-async def test_hybrid_evaluator_returns_structured_fallback_verdict() -> None:
+async def test_hybrid_evaluator_fallback_does_not_impersonate_ai_verdict() -> None:
     steps = sample_steps()
     patch_payload = {
         "patch_type": "tool_result_patch",
@@ -104,12 +100,13 @@ async def test_hybrid_evaluator_returns_structured_fallback_verdict() -> None:
         diff=diff,
     )
 
-    assert verdict["root_cause_step"] == 2
-    assert verdict["divergence_type"] == "wrong_argument"
-    assert verdict["affected_steps"] == [4]
-    assert verdict["risk_level"] == "high"
+    assert "root_cause_step" not in verdict
+    assert "divergence_type" not in verdict
+    assert "risk_level" not in verdict
+    assert "recommendation" not in verdict
     assert verdict["judge_confidence"] == 0.0
     assert verdict["human_review_required"] is True
     assert verdict["source"] == "gemini_scorer_fallback"
     assert verdict["semantic_judgment"]["source"] == "semantic_outcome_judge_fallback"
     assert verdict["ai_load_bearing"] is False
+    assert verdict["deterministic_evidence"]["source"] == "deterministic_diff_only"

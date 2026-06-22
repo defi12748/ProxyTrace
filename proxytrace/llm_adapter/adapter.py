@@ -10,6 +10,20 @@ from proxytrace.privacy.redaction import redact_sensitive_data, redaction_metada
 from proxytrace.settings import get_settings
 
 
+def _response_text(response: Any) -> str | None:
+    if isinstance(response, dict):
+        if isinstance(response.get("text"), str):
+            return response["text"]
+        candidates = response.get("candidates")
+        if isinstance(candidates, list) and candidates and isinstance(candidates[0], dict):
+            content = candidates[0].get("content") or {}
+            parts = content.get("parts") or [] if isinstance(content, dict) else []
+            if parts and isinstance(parts[0], dict) and isinstance(parts[0].get("text"), str):
+                return parts[0]["text"]
+    text = getattr(response, "text", None)
+    return text if isinstance(text, str) else None
+
+
 async def record_llm_snapshot(
     session: AsyncSession,
     *,
@@ -44,6 +58,7 @@ async def record_llm_snapshot(
         "system_prompt": safe_system_prompt,
         "messages": safe_messages,
         "response": safe_response,
+        "response_text": _response_text(safe_response),
         "token_usage": token_usage or {},
         "prompt_hash": hash_json(prompt_material),
         "response_hash": hash_json(safe_response),
@@ -59,31 +74,3 @@ async def record_llm_snapshot(
         step_index=step_index,
     )
     return step_to_dict(step)
-
-
-def decide_project_board(summary: str, description: str = "") -> dict[str, Any]:
-    """Deterministic demo decision used when no real LLM key is configured."""
-    text = f"{summary} {description}".lower()
-    evidence: list[str] = []
-    board = "TRIAGE"
-
-    rules = [
-        ("PLATFORM", ["api", "deploy", "platform", "release", "pipeline"]),
-        ("INFRA", ["database", "latency", "network", "server", "infra"]),
-        ("SECURITY", ["auth", "token", "permission", "oauth", "security"]),
-        ("BILLING", ["invoice", "payment", "billing", "subscription"]),
-    ]
-    for candidate, keywords in rules:
-        hits = [keyword for keyword in keywords if keyword in text]
-        if hits:
-            board = candidate
-            evidence = hits[:3]
-            break
-
-    confidence = 0.93 if evidence else 0.54
-    return {
-        "intent": "route_ticket",
-        "board": board,
-        "confidence": confidence,
-        "evidence": evidence,
-    }

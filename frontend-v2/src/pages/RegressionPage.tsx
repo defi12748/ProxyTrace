@@ -79,7 +79,7 @@ export function RegressionPage() {
   return (
     <PageShell
       title="Regression Suite"
-      subtitle="Frozen assertion tests for your AI agent — the CI layer for determinism"
+      subtitle="Fresh current-agent reruns checked against promoted assertions"
       actions={
         <div style={{ display: "flex", gap: "8px" }}>
           <Button

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from proxytrace.regression_pack.pack_store import build_assertions_from_replay
 from proxytrace.regression_pack.runner import RegressionRunner
@@ -135,3 +136,42 @@ def test_regression_runner_fails_divergent_candidate_trace() -> None:
     assert result["passed"] is False
     assert result["trace_source"] == "candidate_trace"
     assert "final board did not match regression assertion" in result["failures"]
+
+
+async def test_run_item_uses_fresh_agent_trace_not_frozen_trace(monkeypatch) -> None:
+    replay = exploratory_replay()
+    assertions = build_assertions_from_replay(replay)
+    item = SimpleNamespace(
+        test_id="test-1",
+        run_id="run-1",
+        replay_id="replay-1",
+        assertions=assertions,
+        last_run_at=None,
+        pass_count=0,
+        fail_count=0,
+    )
+    runner = RegressionRunner()
+    divergent = [
+        *assertions["frozen_trace"][:2],
+        {
+            **assertions["frozen_trace"][2],
+            "payload": {
+                **assertions["frozen_trace"][2]["payload"],
+                "params": {"issue_key": "DEMO-1", "board": "SECURITY"},
+                "response": {"issue_key": "DEMO-1", "board": "SECURITY"},
+            },
+        },
+    ]
+    monkeypatch.setattr(
+        runner,
+        "_rerun_agent",
+        AsyncMock(return_value=(divergent, None)),
+    )
+    session = SimpleNamespace(flush=AsyncMock())
+
+    result = await runner.run_item(session, item)
+
+    assert result["passed"] is False
+    assert result["trace_source"] == "fresh_agent_reexecution"
+    assert item.fail_count == 1
+    runner._rerun_agent.assert_awaited_once()

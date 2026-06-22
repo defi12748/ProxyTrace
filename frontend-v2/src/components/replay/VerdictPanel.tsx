@@ -19,8 +19,7 @@ function riskColor(level: unknown): "rose" | "amber" | "green" | "gray" {
 export function VerdictPanel({ replay }: VerdictPanelProps) {
   const evaluation = asRecord(replay.verdict.evaluation);
   const semanticJudgment = asRecord(evaluation.semantic_judgment);
-  const deterministic = asRecord(evaluation.deterministic_verdict);
-  const riskLevel = (evaluation.risk_level ?? deterministic.risk_level) as string;
+  const riskLevel = evaluation.risk_level as string | undefined;
   const confidence =
     typeof evaluation.judge_confidence === "number"
       ? evaluation.judge_confidence

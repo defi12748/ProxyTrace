@@ -17,6 +17,12 @@ def _as_bool(value: str | None, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _as_csv(value: str | None, default: tuple[str, ...] = ()) -> tuple[str, ...]:
+    if not value:
+        return default
+    return tuple(item.strip() for item in value.split(",") if item.strip())
+
+
 def _normalize_asyncpg_query(url: str) -> str:
     if "sslmode=" not in url and "channel_binding=" not in url:
         return url
@@ -44,6 +50,19 @@ class Settings:
     atlassian_email: str = os.getenv("ATLASSIAN_EMAIL", "")
     atlassian_api_token: str = os.getenv("ATLASSIAN_API_TOKEN", "")
     atlassian_project_key: str = os.getenv("ATLASSIAN_PROJECT_KEY", "")
+    auth_required: bool = _as_bool(os.getenv("AUTH_REQUIRED"), default=False)
+    proxytrace_api_key: str = os.getenv("PROXYTRACE_API_KEY", "")
+    proxytrace_workspace_id: str = os.getenv(
+        "PROXYTRACE_WORKSPACE_ID", "local-demo"
+    )
+    cors_allowed_origins: tuple[str, ...] = _as_csv(
+        os.getenv("CORS_ALLOWED_ORIGINS"),
+        default=("http://127.0.0.1:5174", "http://localhost:5174"),
+    )
+    cors_allow_origin_regex: str | None = (
+        os.getenv("CORS_ALLOW_ORIGIN_REGEX")
+        or r"^https://([a-z0-9-]+\.)*(atlassian\.net|atl-paas\.net|atlassian-dev\.net)$"
+    )
 
     @property
     def atlassian_configured(self) -> bool:

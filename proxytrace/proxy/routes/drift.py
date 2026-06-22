@@ -15,6 +15,7 @@ from proxytrace.db.models import Step
 from proxytrace.db.repository import get_run, list_warnings, warning_to_dict
 from proxytrace.db.session import get_session
 from proxytrace.drift.checker import DriftChecker, DriftKind
+from proxytrace.proxy.auth import APIContext, require_api_context
 
 router = APIRouter(tags=["drift"])
 _checker = DriftChecker()
@@ -29,6 +30,7 @@ _checker = DriftChecker()
 async def check_step_drift(
     payload: dict[str, str],
     session: AsyncSession = Depends(get_session),
+    context: APIContext = Depends(require_api_context),
 ) -> dict[str, object]:
     """
     Check a single recorded step for contract drift.
@@ -48,6 +50,9 @@ async def check_step_drift(
 
     step = await session.get(Step, step_id)
     if step is None:
+        raise HTTPException(status_code=404, detail="step not found")
+    run = await get_run(session, step.run_id)
+    if run is None or getattr(run, "workspace_id", context.workspace_id) != context.workspace_id:
         raise HTTPException(status_code=404, detail="step not found")
 
     result = await _checker.check_step(session, step=step, run_id=step.run_id)
@@ -78,6 +83,7 @@ async def check_step_drift(
 async def check_run_drift(
     run_id: str,
     session: AsyncSession = Depends(get_session),
+    context: APIContext = Depends(require_api_context),
 ) -> dict[str, object]:
     """
     Re-check every tool step in a run for contract drift.
@@ -85,7 +91,8 @@ async def check_run_drift(
     Useful after a contract is updated to surface all affected steps at once.
     Returns a summary and the full list of new findings grouped by step.
     """
-    if await get_run(session, run_id) is None:
+    run = await get_run(session, run_id)
+    if run is None or getattr(run, "workspace_id", context.workspace_id) != context.workspace_id:
         raise HTTPException(status_code=404, detail="run not found")
 
     result_rows = await session.execute(
@@ -143,6 +150,7 @@ async def check_run_drift(
 async def get_run_drift_warnings(
     run_id: str,
     session: AsyncSession = Depends(get_session),
+    context: APIContext = Depends(require_api_context),
 ) -> dict[str, object]:
     """
     Return all persisted drift warnings for a run.
@@ -151,7 +159,8 @@ async def get_run_drift_warnings(
     ``GET /runs/{run_id}/warnings`` endpoint; it returns the same rows
     filtered to only ``*_drift`` warning types.
     """
-    if await get_run(session, run_id) is None:
+    run = await get_run(session, run_id)
+    if run is None or getattr(run, "workspace_id", context.workspace_id) != context.workspace_id:
         raise HTTPException(status_code=404, detail="run not found")
 
     all_warnings = await list_warnings(session, run_id)

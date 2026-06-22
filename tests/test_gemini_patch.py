@@ -40,8 +40,13 @@ def test_gemini_patch_wraps_generate_content_and_posts_capture(monkeypatch) -> N
         def __exit__(self, *args: Any) -> None:
             pass
 
-        def post(self, url: str, json: dict[str, Any]):
-            posted.append({"url": url, "json": json})
+        def post(
+            self,
+            url: str,
+            json: dict[str, Any],
+            headers: dict[str, str] | None = None,
+        ):
+            posted.append({"url": url, "json": json, "headers": headers or {}})
 
             class FakePostResponse:
                 def raise_for_status(self) -> None:
@@ -77,4 +82,3 @@ def test_gemini_patch_wraps_generate_content_and_posts_capture(monkeypatch) -> N
         assert posted[0]["json"]["response"] == {"text": "route to PLATFORM"}
     finally:
         gemini_patch.uninstall_for_tests()
-

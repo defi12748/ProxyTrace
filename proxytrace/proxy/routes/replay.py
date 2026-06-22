@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from proxytrace.db.session import get_session
+from proxytrace.db.repository import get_run_for_workspace
+from proxytrace.proxy.auth import APIContext, require_api_context
 from proxytrace.replay.exploratory_replay import ExploratoryReplayEngine
 from proxytrace.replay.strict_replay import StrictReplayEngine
 from proxytrace.schemas import (
@@ -22,7 +24,10 @@ exploratory_engine = ExploratoryReplayEngine()
 async def strict_replay(
     request: StrictReplayRequest,
     session: AsyncSession = Depends(get_session),
+    context: APIContext = Depends(require_api_context),
 ) -> dict[str, object]:
+    if await get_run_for_workspace(session, request.run_id, context.workspace_id) is None:
+        raise HTTPException(status_code=404, detail="run not found")
     try:
         return await engine.run(session, request.run_id)
     except ValueError as exc:
@@ -33,7 +38,10 @@ async def strict_replay(
 async def strict_replay_by_run_id(
     run_id: str,
     session: AsyncSession = Depends(get_session),
+    context: APIContext = Depends(require_api_context),
 ) -> dict[str, object]:
+    if await get_run_for_workspace(session, run_id, context.workspace_id) is None:
+        raise HTTPException(status_code=404, detail="run not found")
     try:
         return await engine.run(session, run_id)
     except ValueError as exc:
@@ -44,7 +52,10 @@ async def strict_replay_by_run_id(
 async def exploratory_replay(
     request: ExploratoryReplayRequest,
     session: AsyncSession = Depends(get_session),
+    context: APIContext = Depends(require_api_context),
 ) -> dict[str, object]:
+    if await get_run_for_workspace(session, request.run_id, context.workspace_id) is None:
+        raise HTTPException(status_code=404, detail="run not found")
     try:
         return await exploratory_engine.run(
             session,
@@ -61,7 +72,10 @@ async def exploratory_replay_by_run_id(
     run_id: str,
     request: ExploratoryReplayForRunRequest,
     session: AsyncSession = Depends(get_session),
+    context: APIContext = Depends(require_api_context),
 ) -> dict[str, object]:
+    if await get_run_for_workspace(session, run_id, context.workspace_id) is None:
+        raise HTTPException(status_code=404, detail="run not found")
     try:
         return await exploratory_engine.run(
             session,

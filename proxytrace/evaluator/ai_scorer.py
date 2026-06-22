@@ -15,6 +15,7 @@ except ImportError:  # pragma: no cover - exercised in environments without goog
 
 
 DivergenceType = Literal[
+    "none",
     "wrong_argument",
     "wrong_tool",
     "wrong_order",
@@ -54,22 +55,18 @@ class GeminiScorer:
         patch_step: int,
         patch_payload: dict[str, Any],
         diff: dict[str, Any],
-        deterministic_verdict: dict[str, Any],
     ) -> dict[str, Any]:
         if not self.enabled:
             return self._fallback(
                 reason="scorer_disabled",
-                deterministic_verdict=deterministic_verdict,
             )
         if not self.api_key:
             return self._fallback(
                 reason="missing_gemini_api_key",
-                deterministic_verdict=deterministic_verdict,
             )
         if genai is None:
             return self._fallback(
                 reason="missing_google_genai_dependency",
-                deterministic_verdict=deterministic_verdict,
             )
 
         try:
@@ -80,7 +77,6 @@ class GeminiScorer:
                     patch_step=patch_step,
                     patch_payload=patch_payload,
                     diff=diff,
-                    deterministic_verdict=deterministic_verdict,
                 ),
                 config={
                     "response_mime_type": "application/json",
@@ -93,7 +89,6 @@ class GeminiScorer:
         except (json.JSONDecodeError, ValidationError, Exception) as exc:
             return self._fallback(
                 reason=f"{type(exc).__name__}: {exc}",
-                deterministic_verdict=deterministic_verdict,
             )
 
         verdict = parsed.model_dump(mode="json")
@@ -108,17 +103,17 @@ class GeminiScorer:
         patch_step: int,
         patch_payload: dict[str, Any],
         diff: dict[str, Any],
-        deterministic_verdict: dict[str, Any],
     ) -> str:
         payload = {
             "instruction": (
                 "Compare an original AI-agent trajectory to a patched exploratory "
-                "trajectory. Deterministic checks are the source of truth; you only "
-                "explain root cause, affected steps, risk, and one concrete fix."
+                "trajectory. Independently infer the earliest causal divergence, "
+                "affected steps, risk, and one concrete fix from the trace diff."
             ),
             "output_schema": {
                 "root_cause_step": "integer",
                 "divergence_type": [
+                    "none",
                     "wrong_argument",
                     "wrong_tool",
                     "wrong_order",
@@ -132,13 +127,12 @@ class GeminiScorer:
             },
             "rules": [
                 "Return JSON only. No markdown.",
-                "Prefer deterministic_verdict values unless the diff contradicts them.",
+                "Do not assume the patched step is the root cause; follow the evidence.",
                 "Use low confidence below 0.7 when the evidence is incomplete.",
                 "Keep recommendation to one concrete sentence.",
             ],
             "patch_step": patch_step,
             "patch_payload": patch_payload,
-            "deterministic_verdict": deterministic_verdict,
             "diff": diff,
         }
         return json.dumps(payload, sort_keys=True, default=str)
@@ -147,12 +141,12 @@ class GeminiScorer:
         self,
         *,
         reason: str,
-        deterministic_verdict: dict[str, Any],
     ) -> dict[str, Any]:
-        verdict = dict(deterministic_verdict)
-        verdict["judge_confidence"] = 0.0
-        verdict["human_review_required"] = True
-        verdict["source"] = "gemini_scorer_fallback"
-        verdict["fallback_reason"] = reason
-        verdict["model"] = self.model
-        return verdict
+        return {
+            "analysis_available": False,
+            "judge_confidence": 0.0,
+            "human_review_required": True,
+            "source": "gemini_scorer_fallback",
+            "fallback_reason": reason,
+            "model": self.model,
+        }

@@ -1,19 +1,24 @@
 from __future__ import annotations
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-from proxytrace.agent_demo.agent import JiraTriagingAgent
+from proxytrace.agent_demo.agent import AgentAIUnavailable, JiraTriagingAgent
+from proxytrace.agent_demo.workflow import AgentDecisionError
 from proxytrace.agent_demo.tools import ProxyTraceClient
 from proxytrace.atlassian.jira_client import JiraClient, JiraConfigError
 from proxytrace.schemas import JiraTraceRequest
+from proxytrace.proxy.auth import APIContext, require_api_context
 
 
 router = APIRouter(prefix="/jira", tags=["jira"])
 
 
 @router.get("/issues/{issue_key}")
-async def get_jira_issue(issue_key: str) -> dict[str, object]:
+async def get_jira_issue(
+    issue_key: str,
+    context: APIContext = Depends(require_api_context),
+) -> dict[str, object]:
     try:
         issue = await JiraClient().get_issue(issue_key.strip().upper())
     except JiraConfigError as exc:
@@ -30,6 +35,7 @@ async def get_jira_issue(issue_key: str) -> dict[str, object]:
 async def trace_jira_issue(
     request: JiraTraceRequest,
     http_request: Request,
+    context: APIContext = Depends(require_api_context),
 ) -> dict[str, object]:
     issue_key = request.issue_key.strip().upper()
     if not issue_key:
@@ -38,7 +44,12 @@ async def trace_jira_issue(
     try:
         issue = await JiraClient().get_issue(issue_key)
         api_base_url = str(http_request.base_url).rstrip("/")
-        agent = JiraTriagingAgent(client=ProxyTraceClient(base_url=api_base_url))
+        agent = JiraTriagingAgent(
+            client=ProxyTraceClient(
+                base_url=api_base_url,
+                workspace_id=context.workspace_id,
+            )
+        )
         result = await agent.run(
             issue_key=issue.key,
             summary=issue.summary,
@@ -46,6 +57,10 @@ async def trace_jira_issue(
         )
     except JiraConfigError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except AgentAIUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except AgentDecisionError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=502,

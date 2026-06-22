@@ -12,7 +12,7 @@ Execution tracing, deterministic replay, and regression capture for enterprise A
 
 ## Overview
 
-ProxyTrace is a debugging and evaluation layer for tool-using AI agents in enterprise workflows. It records an agent run as a structured trace, replays the run from stored snapshots instead of live calls, blocks side-effecting tools during replay, and lets a developer patch a step to see how the trajectory changes.
+ProxyTrace is a debugging and evaluation layer for tool-using AI agents in enterprise workflows. It records an agent run as a structured trace, reruns the current agent workflow against recorded interceptors, blocks side-effecting tools during replay, and lets a developer patch a boundary before executing the downstream branch.
 
 The current implementation targets a Jira triage agent with two tools: `get_project_key` (read-only Jira project lookup) and `update_ticket` (controlled Jira write, currently implemented as a trace comment).
 
@@ -28,7 +28,7 @@ In an enterprise setting, that creates three practical problems:
 - rerunning the agent can modify live systems again;
 - incidents are difficult to turn into regression tests.
 
-ProxyTrace addresses this by preserving the execution state of a run and replaying it from recorded snapshots instead of live services.
+ProxyTrace addresses this by preserving model/tool responses and serving them through interceptors while the current agent code executes again. This distinguishes an agent-code replay from merely iterating over stored trace rows.
 
 ## Status
 
@@ -37,22 +37,23 @@ ProxyTrace addresses this by preserving the execution state of a run and replayi
 | AINS Use Case 2 Criterion | Current Prototype Support |
 |---|---|
 | Record functionality | Implemented. Runs store LLM snapshots and tool-call payloads in Neon. |
-| Deterministic replay | Implemented. Strict replay serves recorded snapshots and reports determinism metrics. |
+| Deterministic replay | Implemented. Strict replay executes the current Jira agent workflow against recorded model/tool interceptors, proves zero provider calls, and compares the resulting call sequence and request payloads. |
 | State inspection | Implemented through `GET /runs/{run_id}` and persisted `snapshot` JSON fields. |
 | Side-effect-safe debugging | Implemented. Write/destructive tools are blocked by the firewall during replay. |
-| Divergence editing | Implemented for prompt patches and tool-result patches. |
+| Divergence editing | Implemented for prompt patches and tool-result patches. Downstream model decisions are regenerated and downstream tools remain intercepted. |
 | Human-readable verdict | Implemented through structured evaluator output and surfaced in the console report panels. |
-| Regression capture | Implemented as frozen trace assertions and AI-derived semantic assertions. Fresh-agent regression re-execution is pending. |
+| Regression capture | Implemented. Promotions freeze assertions, while regression runs execute the current agent from the saved patch boundary and compare the fresh candidate trace. |
 | Data sensitivity | Implemented for capture paths with recursive redaction before prompt/tool payloads are stored. |
-| Contract drift detection | Implemented. `/mcp` records descriptor hashes, checks drift automatically, and drift endpoints support on-demand re-checks. |
+| Contract drift detection | Implemented. `/tool-proxy/call` records descriptor hashes, checks drift automatically, and drift endpoints support on-demand re-checks. |
+| API isolation | Implemented with optional fail-closed bearer/API-key auth, a server-pinned workspace for authenticated callers, workspace-scoped queries, and an explicit CORS allowlist. |
 | Frontend console | Implemented as a React/Vite operator console for Jira issue trigger, trace list, timeline, inspector, replay, patch, diff, drift, and regression flows. It is hosted on Render and embedded in Jira through Forge Custom UI. |
 
-### Remaining Work
+### Known Limits
 
-1. Add Jira workflow transition support after reading the project transition IDs.
-2. Publish the final evaluation/SPEC artifacts and demo video.
-3. Extend the regression runner to re-execute a fresh agent version against frozen assertions, rather than only checking consistency of the frozen trace itself.
-4. Harden production operations around auth, rate limits, logs, and Render cold-start behavior.
+1. The real Jira write is a reversible trace comment, not a board/project migration.
+2. Exploratory replay is currently specialized to the Jira triage workflow. The patch engine itself no longer contains board-specific propagation rules.
+3. The tool gateway is a typed HTTP gateway, not an MCP JSON-RPC server. The legacy `POST /mcp` alias remains hidden for backward compatibility only.
+4. API-key auth is suitable for this single-workspace deployment; multi-user production should use an identity provider and short-lived user tokens.
 
 ## Architecture
 
@@ -74,12 +75,12 @@ graph LR
     Scorer --> Regression["Regression Pack"]
 ```
 
-ProxyTrace captures the model layer and the tool layer separately. The tool proxy can see tool calls and side-effect risk, but not prompts or model responses — so a dedicated Gemini adapter captures model traffic while the MCP-style proxy captures tool execution.
+ProxyTrace captures the model layer and the tool layer separately. The tool proxy can see tool calls and side-effect risk, but not prompts or model responses, so a dedicated Gemini adapter captures model traffic while the typed HTTP Tool Proxy Gateway captures tool execution.
 
 | Layer | Captures | Current Integration |
 |---|---|---|
 | Gemini SDK capture adapter | system prompt, messages, model name, response payload, token usage, prompt/response hashes | wraps `google.genai.Client.models.generate_content(...)` and posts snapshots to `POST /llm/capture` when a run context is active |
-| Tool Proxy Gateway | tool name, input parameters, output payload, latency, status, side-effect class, contract hashes, drift result | agent calls `POST /mcp`; the gateway validates the registered contract, records the step, executes the live handler during recording, and checks drift immediately |
+| Tool Proxy Gateway | tool name, input parameters, output payload, latency, status, side-effect class, contract hashes, drift result | agent calls `POST /tool-proxy/call`; the gateway validates the registered contract, records the step, executes the live handler during recording, and checks drift immediately |
 | Trace Store | run metadata, ordered steps, snapshots, replay verdicts, warnings, regression packs | Neon PostgreSQL with JSONB snapshots and async SQLAlchemy access |
 
 ## Replay, Patch & Scoring
@@ -116,7 +117,7 @@ The Gemini evaluator returns strict JSON for root cause, affected steps, risk, c
 
 ## AI Mechanism
 
-ProxyTrace is built for AI-agent failures, so its AI role is not a generic chat layer. The Gemini path captures model decisions, produces structured divergence verdicts, extracts the intended Jira routing outcome from trace context, decides whether a replay satisfies that outcome, and freezes semantic assertions into the regression pack. Removing Gemini would leave raw replay infrastructure, but not the semantic failure attribution and regression judgment layer.
+ProxyTrace is built for AI-agent failures, so its AI role is not a generic chat layer. Gemini decisions now drive the demo agent's selected board and write/stop path. Gemini also produces root-cause attribution and infers semantic business-outcome assertions. Removing Gemini stops new triage and downstream exploratory branches; evaluator fallback exposes raw changed-step/final-state facts only, with no root cause, divergence class, risk, recommendation, or semantic assertion.
 
 ## Data Sensitivity
 
@@ -166,10 +167,10 @@ It does **not** create or alter tables — that is Alembic's job exclusively.
 uvicorn proxytrace.proxy.main:app --reload
 ```
 
-5. Run the frontend console.
+5. Run the frontend-v2 console.
 
 ```powershell
-cd frontend
+cd frontend-v2
 npm install
 npm run dev
 ```
@@ -191,7 +192,8 @@ Expected replay properties:
 
 - `live_call_count` is `0`
 - write tools are marked `side_effect_blocked`
-- `determinism_rate` reflects recorded-vs-replayed step sequence matching
+- `determinism_rate` compares recorded calls with calls emitted by the current agent workflow
+- `request_match_rate` compares current tool parameters/model prompts with the recording
 - side-effect warnings are written to `drift_warnings`
 
 ## Database Migrations
@@ -242,7 +244,7 @@ alembic revision --autogenerate -m "describe your change"
 No manual schema management is needed on Render — migrations run automatically on every deploy.
 
 ```yaml
-buildCommand: pip install -e . && npm --prefix frontend ci && npm --prefix frontend run build && alembic upgrade head
+buildCommand: pip install -e . && npm --prefix frontend-v2 ci && npm --prefix frontend-v2 run build && alembic upgrade head
 ```
 
 ## Render Deployment Check
@@ -260,7 +262,16 @@ DATABASE_URL=postgresql://USER:PASSWORD@HOST/proxytrace?sslmode=require
 PROXYTRACE_API_URL=https://proxytrace.onrender.com
 GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-3.1-flash-lite
+AUTH_REQUIRED=false
+PROXYTRACE_API_KEY=...
+PROXYTRACE_WORKSPACE_ID=local-demo
+CORS_ALLOWED_ORIGINS=http://127.0.0.1:5174,http://localhost:5174
 REDACTION_ENABLED=true
+AUTH_REQUIRED=true
+PROXYTRACE_API_KEY=...
+PROXYTRACE_WORKSPACE_ID=proxytrace-demo
+CORS_ALLOWED_ORIGINS=https://proxytrace.onrender.com
+CORS_ALLOW_ORIGIN_REGEX=^https://([a-z0-9-]+\.)*(atlassian\.net|atl-paas\.net|atlassian-dev\.net)$
 DEMO_TOOL_MODE=false
 ATLASSIAN_SITE_URL=https://proxytrace.atlassian.net
 ATLASSIAN_EMAIL=...
@@ -348,25 +359,25 @@ The latest verified Forge deployment fixed two integration issues:
 | `GET /jira/issues/{issue_key}` | fetch a real Jira issue from Atlassian Cloud |
 | `POST /jira/trace` | trigger a traced agent run from a real Jira issue key |
 | `POST /llm/capture` | record an LLM prompt/response snapshot |
-| `POST /mcp` | proxy and record a tool call |
+| `POST /tool-proxy/call` | typed HTTP tool gateway; execute and record a tool call |
 | `POST /drift/check` | check one recorded tool step for contract drift |
 | `POST /runs/{run_id}/drift/check-all` | re-check every tool step in a run |
 | `GET /runs/{run_id}/drift` | list persisted drift warnings for a run |
 | `POST /runs/{run_id}/complete` | mark a run completed or failed |
-| `POST /runs/{run_id}/replay/strict` | replay from recorded snapshots |
-| `POST /runs/{run_id}/replay/exploratory` | apply a patch and compare the branched trajectory |
+| `POST /runs/{run_id}/replay/strict` | execute the current workflow using recorded interceptors |
+| `POST /runs/{run_id}/replay/exploratory` | apply a patch and execute the downstream branch with tools intercepted |
 | `POST /replay/exploratory` | exploratory replay with `run_id` in the request body |
 | `POST /regression/promote` | freeze an exploratory replay into regression assertions |
 | `GET /regression` | list promoted regression tests |
-| `POST /regression/run-all` | run frozen regression assertions |
+| `POST /regression/run-all` | rerun the current agent and check promoted assertions |
 
 ## Frontend Console
 
-The standalone React console lives in `frontend`. It uses `VITE_PROXYTRACE_API_URL` to call the FastAPI backend and defaults to `http://127.0.0.1:8000` in local development. On Render, `render.yaml` builds `frontend/dist` and `proxytrace.proxy.frontend.mount_frontend()` serves it from the FastAPI app.
+The standalone React console lives in `frontend-v2`. It uses `VITE_PROXYTRACE_API_URL` to call the FastAPI backend and defaults to `http://127.0.0.1:8000` in local development. On Render, `render.yaml` builds `frontend-v2/dist` and `proxytrace.proxy.frontend.mount_frontend()` serves it from the FastAPI app.
 
 The Forge issue-panel console lives in `forge-app/static/hello-world`. It shares the same core interaction model but reads Jira issue context from `@forge/bridge` and defaults production API calls to `https://proxytrace.onrender.com`.
 
-On Windows, `start.ps1` stops existing listeners on ports `8000` and `5173`, starts the backend and frontend in separate terminal tabs or windows, and opens the console.
+On Windows, `start.ps1` starts the backend and frontend development processes and opens the console.
 
 Current views:
 
@@ -380,7 +391,7 @@ Current views:
 - Gemini divergence / semantic judgment panel
 - drift warnings and regression-pack controls
 
-## Evaluation Plan
+## Evaluation
 
 Label targets for the evaluation set are defined in `proxytrace/data/labels.json`, covering 20 traces:
 
@@ -391,7 +402,7 @@ Label targets for the evaluation set are defined in `proxytrace/data/labels.json
 - 2 wrong tool order failures
 - 2 schema drift warnings
 
-Planned metrics: replay determinism rate, side-effect blocking rate, divergence localization accuracy, judge agreement rate, end-state equivalence, and regression pass rate.
+Run `python -m proxytrace.evaluation --no-ai` for the deterministic proof, or omit `--no-ai` with `GEMINI_API_KEY` configured for blind AI scoring. The runner removes labels before evaluator calls, computes determinism from fixture-controller execution, invokes the real firewall for blocking metrics, and reports unavailable AI metrics as `N/A`. Committed outputs are `evaluation_report.md`, `evaluation_results.json`, and `proxytrace/data/synthetic_traces.json`.
 
 ## Repository Structure
 
@@ -406,7 +417,7 @@ proxytrace/
   llm_adapter/         LLM capture helpers and Gemini SDK patch
   patch/               patch engine
   privacy/             trace redaction helpers
-  proxy/               FastAPI app, routes, MCP-style proxy
+  proxy/               FastAPI app, auth, routes, and typed tool gateway
   regression_pack/     regression promotion and assertion runner
   replay/              strict and exploratory replay engines
 migrations/
@@ -414,7 +425,7 @@ migrations/
   versions/            versioned migration scripts
 tests/
   test_*.py            focused backend tests
-frontend/              React/Vite ProxyTrace console
+frontend-v2/           React/Vite ProxyTrace console deployed by Render
 forge-app/             Forge Custom UI issue-context app for Jira
   manifest.yml         Forge modules, resource, resolver, scopes, and egress
   src/                 Forge resolver function

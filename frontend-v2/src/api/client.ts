@@ -13,6 +13,8 @@ export class ProxyTraceApi {
       ...init,
       headers: {
         "Content-Type": "application/json",
+        ...(API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {}),
+        "X-ProxyTrace-Workspace-ID": WORKSPACE_ID,
         ...(init?.headers ?? {}),
       },
     });
@@ -61,6 +63,12 @@ export function asRecord(value: unknown): JsonObject {
 export const DEFAULT_API_BASE =
   (import.meta.env.VITE_PROXYTRACE_API_URL as string | undefined) ||
   (import.meta.env.DEV ? "http://127.0.0.1:8000" : "");
+
+const API_KEY =
+  (import.meta.env.VITE_PROXYTRACE_API_KEY as string | undefined) || "";
+const WORKSPACE_ID =
+  (import.meta.env.VITE_PROXYTRACE_WORKSPACE_ID as string | undefined) ||
+  "local-demo";
 
 export function getInitialApiBase(): string {
   const saved =

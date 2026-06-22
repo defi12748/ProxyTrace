@@ -535,7 +535,6 @@ export function App() {
 
   const evaluation = asRecord(exploratoryReplay?.verdict.evaluation);
   const semanticJudgment = asRecord(evaluation.semantic_judgment);
-  const deterministic = asRecord(evaluation.deterministic_verdict);
   const strictVerdict = strictReplay?.verdict;
   const strictDeterminism =
     typeof strictVerdict?.determinism_rate === "number"
@@ -802,7 +801,7 @@ export function App() {
             replay_id: exploratoryReplay?.replay_id,
             root_cause_step: evaluation.root_cause_step,
             divergence_type: evaluation.divergence_type,
-            risk_level: evaluation.risk_level ?? deterministic.risk_level,
+            risk_level: evaluation.risk_level,
             judge_confidence: evaluation.judge_confidence,
             human_review_required: evaluation.human_review_required,
             ai_load_bearing: evaluation.ai_load_bearing,

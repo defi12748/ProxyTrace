@@ -40,19 +40,20 @@ class PatchEngine:
         target["patch_applied"] = True
         target["patch"] = deepcopy(patch_payload)
 
-        propagation = self._propagate_tool_result_patch(
-            patched_steps,
-            patch_step=patch_step,
-            patch_type=patch_type,
-            target=target,
-        )
-
         return {
             "patch_step": patch_step,
             "patch_type": patch_type,
             "patch_payload": deepcopy(patch_payload),
             "patched_steps": patched_steps,
-            "propagation": propagation,
+            "propagation": {
+                "applied": False,
+                "strategy": "agent_reexecution_required",
+                "reason": (
+                    "PatchEngine only changes the selected boundary. Downstream "
+                    "effects must be discovered by executing the agent workflow."
+                ),
+                "affected_steps": [],
+            },
         }
 
     def _step_to_trajectory_item(self, step: Any) -> dict[str, Any]:
@@ -104,53 +105,3 @@ class PatchEngine:
         payload["response"] = deepcopy(response_patch)
         payload["patch_type"] = "tool_result_patch"
         target["source"] = "patched_tool_result"
-
-    def _propagate_tool_result_patch(
-        self,
-        patched_steps: list[dict[str, Any]],
-        *,
-        patch_step: int,
-        patch_type: str,
-        target: dict[str, Any],
-    ) -> dict[str, Any]:
-        if patch_type != "tool_result_patch":
-            return {"applied": False, "reason": "patch type does not propagate"}
-
-        patched_response = target["payload"].get("response")
-        if not isinstance(patched_response, dict):
-            return {"applied": False, "reason": "patched response is not an object"}
-
-        routed_board = (
-            patched_response.get("project_key")
-            or patched_response.get("board")
-            or patched_response.get("project")
-        )
-        if not routed_board:
-            return {"applied": False, "reason": "patched response has no board-like key"}
-
-        affected_steps: list[int] = []
-        for step in patched_steps:
-            if step["step_index"] <= patch_step or step["step_type"] != "tool":
-                continue
-            if step.get("tool_name") != "update_ticket":
-                continue
-
-            payload = step["payload"]
-            params = deepcopy(payload.get("params", {}))
-            response = deepcopy(payload.get("response", {}))
-            params["board"] = routed_board
-            if isinstance(response, dict):
-                response["board"] = routed_board
-            payload["params"] = params
-            payload["response"] = response
-            payload["derived_from_patch_step"] = patch_step
-            step["source"] = "derived_from_patch"
-            step["unverified"] = True
-            affected_steps.append(step["step_index"])
-
-        return {
-            "applied": bool(affected_steps),
-            "strategy": "propagate_project_key_to_update_ticket",
-            "board": routed_board,
-            "affected_steps": affected_steps,
-        }

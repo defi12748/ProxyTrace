@@ -42,7 +42,6 @@ class SemanticOutcomeJudge:
         *,
         trace_context: dict[str, Any],
         diff: dict[str, Any],
-        deterministic_verdict: dict[str, Any],
     ) -> dict[str, Any]:
         if not self.enabled:
             return self._fallback("semantic_judge_disabled")
@@ -60,7 +59,6 @@ class SemanticOutcomeJudge:
                 contents=self._prompt(
                     trace_context=trace_context,
                     diff=diff,
-                    deterministic_verdict=deterministic_verdict,
                 ),
                 config={
                     "response_mime_type": "application/json",
@@ -90,7 +88,6 @@ class SemanticOutcomeJudge:
         *,
         trace_context: dict[str, Any],
         diff: dict[str, Any],
-        deterministic_verdict: dict[str, Any],
     ) -> str:
         payload = {
             "instruction": (
@@ -113,7 +110,6 @@ class SemanticOutcomeJudge:
             ],
             "trace_context": trace_context,
             "diff": diff,
-            "deterministic_verdict": deterministic_verdict,
         }
         return json.dumps(payload, sort_keys=True, default=str)
 

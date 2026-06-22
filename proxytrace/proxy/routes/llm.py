@@ -3,10 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from proxytrace.db.repository import get_run
+from proxytrace.db.repository import get_run_for_workspace
 from proxytrace.db.session import get_session
 from proxytrace.llm_adapter.adapter import record_llm_snapshot
 from proxytrace.schemas import LLMCaptureRequest
+from proxytrace.proxy.auth import APIContext, require_api_context
 
 
 router = APIRouter(tags=["llm"])
@@ -16,8 +17,11 @@ router = APIRouter(tags=["llm"])
 async def capture_llm_step(
     request: LLMCaptureRequest,
     session: AsyncSession = Depends(get_session),
+    context: APIContext = Depends(require_api_context),
 ) -> dict[str, object]:
-    if await get_run(session, request.run_id) is None:
+    if await get_run_for_workspace(
+        session, request.run_id, context.workspace_id
+    ) is None:
         raise HTTPException(status_code=404, detail="run not found")
     step = await record_llm_snapshot(
         session,
@@ -32,4 +36,3 @@ async def capture_llm_step(
     )
     await session.commit()
     return {"step": step}
-

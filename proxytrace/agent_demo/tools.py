@@ -8,9 +8,24 @@ from proxytrace.settings import get_settings
 
 
 class ProxyTraceClient:
-    def __init__(self, base_url: str | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str | None = None,
+        *,
+        api_key: str | None = None,
+        workspace_id: str | None = None,
+    ) -> None:
         settings = get_settings()
         self.base_url = (base_url or settings.proxytrace_api_url).rstrip("/")
+        self.api_key = api_key if api_key is not None else settings.proxytrace_api_key
+        self.workspace_id = workspace_id or settings.proxytrace_workspace_id
+
+    @property
+    def headers(self) -> dict[str, str]:
+        headers = {"X-ProxyTrace-Workspace-ID": self.workspace_id}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        return headers
 
     async def start_run(
         self,
@@ -21,10 +36,11 @@ class ProxyTraceClient:
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.post(
                 f"{self.base_url}/runs",
+                headers=self.headers,
                 json={
                     "agent_id": "jira-triage-demo",
                     "jira_issue_key": jira_issue_key,
-                    "workspace_id": "local-demo",
+                    "workspace_id": self.workspace_id,
                     "metadata": metadata or {},
                 },
             )
@@ -44,6 +60,7 @@ class ProxyTraceClient:
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.post(
                 f"{self.base_url}/llm/capture",
+                headers=self.headers,
                 json={
                     "run_id": run_id,
                     "model": model,
@@ -70,7 +87,8 @@ class ProxyTraceClient:
     ) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.post(
-                f"{self.base_url}/mcp",
+                f"{self.base_url}/tool-proxy/call",
+                headers=self.headers,
                 json={
                     "run_id": run_id,
                     "tool_name": tool_name,
@@ -91,8 +109,8 @@ class ProxyTraceClient:
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.post(
                 f"{self.base_url}/runs/{run_id}/complete",
+                headers=self.headers,
                 json={"status": status, "metadata": metadata or {}},
             )
             response.raise_for_status()
             return response.json()["run"]
-

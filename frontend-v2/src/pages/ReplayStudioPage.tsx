@@ -233,7 +233,7 @@ export function ReplayStudioPage() {
               </CardHeader>
               <CardBody style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>
-                  Save this simulation as a frozen regression test. Future agent versions will be checked against it.
+                  Save these assertions as a regression test. Future agent versions will be freshly rerun against them.
                 </p>
                 {promotedId ? (
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px", background: "var(--emerald-dim)", border: "1px solid rgba(52,211,153,0.3)", borderRadius: "var(--radius-md)" }}>

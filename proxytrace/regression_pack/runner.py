@@ -1,14 +1,30 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from proxytrace.db.models import RegressionPackItem
+from proxytrace.db.repository import fetch_steps, get_run
+from proxytrace.replay.agent_harness import (
+    DecisionGenerator,
+    GeminiDecisionGenerator,
+    execute_recorded_agent,
+)
+from proxytrace.replay.firewall import SideEffectFirewall
 
 
 class RegressionRunner:
+    def __init__(
+        self,
+        *,
+        decision_generator: DecisionGenerator | None = None,
+        firewall: SideEffectFirewall | None = None,
+    ) -> None:
+        self.decision_generator = decision_generator or GeminiDecisionGenerator()
+        self.firewall = firewall or SideEffectFirewall()
+
     async def run_item(
         self,
         session: AsyncSession,
@@ -16,11 +32,19 @@ class RegressionRunner:
         *,
         candidate_trace: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
+        execution_error: dict[str, str] | None = None
+        if candidate_trace is None:
+            candidate_trace, execution_error = await self._rerun_agent(session, item)
         result = self._evaluate_assertions(
             item.assertions or {},
             candidate_trace=candidate_trace,
         )
-        item.last_run_at = datetime.utcnow()
+        result["trace_source"] = "fresh_agent_reexecution"
+        result["execution_error"] = execution_error
+        if execution_error is not None:
+            result["failures"].append("fresh agent re-execution did not complete")
+            result["passed"] = False
+        item.last_run_at = datetime.now(timezone.utc).replace(tzinfo=None)
         if result["passed"]:
             item.pass_count += 1
         else:
@@ -32,6 +56,35 @@ class RegressionRunner:
             "replay_id": item.replay_id,
             **result,
         }
+
+    async def _rerun_agent(
+        self,
+        session: AsyncSession,
+        item: RegressionPackItem,
+    ) -> tuple[list[dict[str, Any]], dict[str, str] | None]:
+        run = await get_run(session, item.run_id)
+        if run is None:
+            return [], {"type": "RunNotFound", "message": item.run_id}
+        steps = await fetch_steps(session, item.run_id)
+        assertions = item.assertions or {}
+        try:
+            _, runtime = await execute_recorded_agent(
+                run=run,
+                steps=steps,
+                session=session,
+                firewall=self.firewall,
+                mode="exploratory",
+                patch_step=assertions.get("patch_step"),
+                patch_payload=assertions.get("patch_payload") or {},
+                decision_generator=self.decision_generator,
+            )
+            return runtime.events, None
+        except Exception as exc:
+            runtime = getattr(exc, "replay_runtime", None)
+            return (
+                runtime.events if runtime is not None else [],
+                {"type": type(exc).__name__, "message": str(exc)},
+            )
 
     async def run_all(
         self,

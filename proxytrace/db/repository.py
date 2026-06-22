@@ -126,15 +126,32 @@ async def get_run(session: AsyncSession, run_id: str) -> Run | None:
     return await session.get(Run, run_id)
 
 
+async def get_run_for_workspace(
+    session: AsyncSession,
+    run_id: str,
+    workspace_id: str,
+) -> Run | None:
+    result = await session.execute(
+        select(Run).where(
+            Run.run_id == run_id,
+            Run.workspace_id == workspace_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
 async def list_runs(
     session: AsyncSession,
     *,
     jira_issue_key: str | None = None,
+    workspace_id: str | None = None,
     limit: int = 50,
 ) -> list[Run]:
     query = select(Run).order_by(desc(Run.started_at)).limit(limit)
     if jira_issue_key:
         query = query.where(Run.jira_issue_key == jira_issue_key)
+    if workspace_id:
+        query = query.where(Run.workspace_id == workspace_id)
     result = await session.execute(query)
     return list(result.scalars().all())
 
@@ -192,28 +209,56 @@ async def list_warnings(session: AsyncSession, run_id: str) -> list[DriftWarning
     return list(result.scalars().all())
 
 
-async def get_replay(session: AsyncSession, replay_id: str) -> Replay | None:
-    return await session.get(Replay, replay_id)
+async def get_replay(
+    session: AsyncSession,
+    replay_id: str,
+    *,
+    workspace_id: str | None = None,
+) -> Replay | None:
+    if workspace_id is None:
+        return await session.get(Replay, replay_id)
+    result = await session.execute(
+        select(Replay)
+        .join(Run, Replay.run_id == Run.run_id)
+        .where(Replay.replay_id == replay_id, Run.workspace_id == workspace_id)
+    )
+    return result.scalar_one_or_none()
 
 
 async def list_regression_items(
     session: AsyncSession,
     *,
     limit: int = 100,
+    workspace_id: str | None = None,
 ) -> list[RegressionPackItem]:
-    result = await session.execute(
-        select(RegressionPackItem)
-        .order_by(desc(RegressionPackItem.promoted_at))
-        .limit(limit)
-    )
+    query = select(RegressionPackItem).order_by(
+        desc(RegressionPackItem.promoted_at)
+    ).limit(limit)
+    if workspace_id:
+        query = query.join(Run, RegressionPackItem.run_id == Run.run_id).where(
+            Run.workspace_id == workspace_id
+        )
+    result = await session.execute(query)
     return list(result.scalars().all())
 
 
 async def get_regression_item(
     session: AsyncSession,
     test_id: str,
+    *,
+    workspace_id: str | None = None,
 ) -> RegressionPackItem | None:
-    return await session.get(RegressionPackItem, test_id)
+    if workspace_id is None:
+        return await session.get(RegressionPackItem, test_id)
+    result = await session.execute(
+        select(RegressionPackItem)
+        .join(Run, RegressionPackItem.run_id == Run.run_id)
+        .where(
+            RegressionPackItem.test_id == test_id,
+            Run.workspace_id == workspace_id,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def get_contract(

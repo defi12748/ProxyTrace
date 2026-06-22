@@ -185,8 +185,15 @@ def _record_gemini_call(
         },
     }
     try:
+        headers = {"X-ProxyTrace-Workspace-ID": settings.proxytrace_workspace_id}
+        if settings.proxytrace_api_key:
+            headers["Authorization"] = f"Bearer {settings.proxytrace_api_key}"
         with httpx.Client(timeout=10) as client:
-            result = client.post(f"{base_url}/llm/capture", json=payload)
+            result = client.post(
+                f"{base_url}/llm/capture",
+                json=payload,
+                headers=headers,
+            )
             result.raise_for_status()
     except httpx.HTTPError:
         return

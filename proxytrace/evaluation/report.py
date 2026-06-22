@@ -32,12 +32,16 @@ def render_evaluation_report(evaluation: dict[str, Any]) -> str:
         f"- Human-review rate: {_pct(metrics['human_review_rate'])}",
         f"- Regression pass rate: {_pct(metrics['regression_pass_rate'])}",
         f"- Gemini fallback rate: {_pct(metrics['fallback_rate'])}",
+        f"- AI-scored traces: {metrics['ai_scored_trace_count']}/{evaluation['total_traces']}",
+        f"- Semantic-judged traces: {metrics['semantic_judged_trace_count']}/{evaluation['total_traces']}",
         "",
         "## Notes",
         "",
-        "- Synthetic traces are generated from `proxytrace/data/labels.json`.",
-        "- Gemini scorer and semantic judge are called when `GEMINI_API_KEY` is configured.",
-        "- Fallback results are retained in the report so missing credentials do not hide evaluation gaps.",
+        "- Synthetic observed traces and held-out references are generated from `proxytrace/data/labels.json`.",
+        "- Labels are removed before scorer and semantic-judge calls; they are read only afterward to calculate metrics.",
+        "- Replay determinism is measured by rerunning the fixture controller from recorded LLM decisions.",
+        "- Side-effect blocking is measured from actual SideEffectFirewall decisions, not tool-name presence.",
+        "- AI metrics are reported as N/A when Gemini is unavailable; fallback output is never counted as a correct verdict.",
         "",
         "## Trace Results",
         "",
@@ -62,9 +66,13 @@ def render_evaluation_report(evaluation: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _pct(value: float) -> str:
+def _pct(value: float | None) -> str:
+    if value is None:
+        return "N/A"
     return f"{value * 100:.1f}%"
 
 
-def _yes_no(value: bool) -> str:
+def _yes_no(value: bool | None) -> str:
+    if value is None:
+        return "n/a"
     return "yes" if value else "no"

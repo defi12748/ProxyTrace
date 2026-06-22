@@ -46,7 +46,6 @@ def test_gemini_scorer_parses_strict_json(monkeypatch) -> None:
         patch_step=2,
         patch_payload={"patch_type": "tool_result_patch"},
         diff={},
-        deterministic_verdict={"root_cause_step": 2},
     )
 
     assert verdict["judge_confidence"] == 0.91
@@ -67,13 +66,6 @@ def test_gemini_scorer_falls_back_on_malformed_output(monkeypatch) -> None:
         patch_step=2,
         patch_payload={"patch_type": "tool_result_patch"},
         diff={},
-        deterministic_verdict={
-            "root_cause_step": 2,
-            "divergence_type": "wrong_argument",
-            "affected_steps": [4],
-            "risk_level": "high",
-            "recommendation": "Validate tool outputs.",
-        },
     )
 
     assert verdict["judge_confidence"] == 0.0
@@ -105,7 +97,6 @@ def test_semantic_outcome_judge_parses_assertions(monkeypatch) -> None:
     verdict = SemanticOutcomeJudge(api_key="fake", model="gemini-test").judge(
         trace_context={"run": {"metadata": {"summary": "API deploy pipeline fails"}}},
         diff={},
-        deterministic_verdict={},
     )
 
     assert verdict["source"] == "gemini_semantic_outcome_judge"
@@ -125,7 +116,6 @@ def test_semantic_outcome_judge_falls_back_on_malformed_output(monkeypatch) -> N
     verdict = SemanticOutcomeJudge(api_key="fake", model="gemini-test").judge(
         trace_context={"run": {"metadata": {"summary": "API deploy pipeline fails"}}},
         diff={},
-        deterministic_verdict={},
     )
 
     assert verdict["source"] == "semantic_outcome_judge_fallback"

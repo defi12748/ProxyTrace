@@ -96,6 +96,12 @@ export class ProxyTraceApi {
       ...init,
       headers: {
         "Content-Type": "application/json",
+        ...((import.meta.env.VITE_PROXYTRACE_API_KEY as string | undefined)
+          ? { Authorization: `Bearer ${import.meta.env.VITE_PROXYTRACE_API_KEY}` }
+          : {}),
+        "X-ProxyTrace-Workspace-ID":
+          (import.meta.env.VITE_PROXYTRACE_WORKSPACE_ID as string | undefined) ||
+          "local-demo",
         ...(init?.headers ?? {})
       }
     });
