@@ -49,7 +49,7 @@ function Wait-HttpReady {
 Stop-PortListener -Port $BackendPort
 Stop-PortListener -Port $FrontendPort
 
-$frontendRoot = Join-Path $Root "frontend"
+$frontendRoot = Join-Path $Root "frontend-v2"
 $rootLiteral = ConvertTo-PowerShellLiteral $Root
 $frontendLiteral = ConvertTo-PowerShellLiteral $frontendRoot
 
