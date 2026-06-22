@@ -226,6 +226,15 @@ export function AppWrapper() {
     );
   }
 
+  if (runtime.isForge) {
+    return (
+      <>
+        <JiraPanelApp initialIssueKey={runtime.issueKey} />
+        <ToastContainer />
+      </>
+    );
+  }
+
   return (
     <TourProvider>
       <App

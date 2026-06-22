@@ -4,11 +4,12 @@ import { Search, X } from "lucide-react";
 interface SearchBarProps {
   value: string;
   onChange: (v: string) => void;
+  onSubmit?: (v: string) => void;
   placeholder?: string;
 }
 
 /* Animated expanding search bar — identical to dotrack SearchBar.js */
-export function SearchBar({ value, onChange, placeholder = "Search…" }: SearchBarProps) {
+export function SearchBar({ value, onChange, onSubmit, placeholder = "Search…" }: SearchBarProps) {
   const [active, setActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -42,7 +43,33 @@ export function SearchBar({ value, onChange, placeholder = "Search…" }: Search
         overflow: "hidden",
       }}
     >
-      <Search size={15} style={{ color: "var(--text-secondary)", flexShrink: 0 }} />
+      <button
+        type="button"
+        aria-label={active && value.trim() && onSubmit ? "Run search" : "Open search"}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (active && value.trim() && onSubmit) {
+            onSubmit(value.trim());
+            inputRef.current?.blur();
+          } else {
+            activate();
+          }
+        }}
+        style={{
+          display: "grid",
+          placeItems: "center",
+          width: "18px",
+          height: "24px",
+          padding: 0,
+          border: 0,
+          background: "transparent",
+          color: "var(--text-secondary)",
+          cursor: "pointer",
+          flexShrink: 0,
+        }}
+      >
+        <Search size={15} />
+      </button>
 
       {/* Static label fades out */}
       {!active && (
@@ -58,7 +85,14 @@ export function SearchBar({ value, onChange, placeholder = "Search…" }: Search
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && value.trim()) {
+            onSubmit?.(value.trim());
+            inputRef.current?.blur();
+          }
+        }}
         onBlur={deactivate}
+        aria-label={placeholder}
         style={{
           position: "absolute",
           left: "32px",

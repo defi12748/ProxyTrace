@@ -217,10 +217,16 @@ export function WorkflowGraph({
       >
         <Background color="var(--border-strong)" gap={16} size={1} />
         <Controls
+          showInteractive={false}
+          position="top-right"
+          orientation="horizontal"
+          aria-label="Workflow graph controls"
           style={{
             boxShadow: "var(--shadow-md)",
             border: "1px solid var(--border)",
             borderRadius: "var(--radius-md)",
+            overflow: "hidden",
+            margin: "10px",
           }}
         />
         {!compact && (

@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
-import { Database, RotateCcw, Split, ExternalLink, Zap, Brain, BadgeCheck, Activity, ChevronDown, ChevronRight, Play, AlertTriangle } from "lucide-react";
+import { Database, RotateCcw, Split, ExternalLink, Zap, Brain, BadgeCheck, Activity, ChevronDown, ChevronRight, Play, AlertTriangle, ShieldCheck, TestTube2 } from "lucide-react";
 import { ProxyTraceApi, getInitialApiBase } from "../api/client";
-import type { Run, RunDetail, StrictReplay, ExploratoryReplay, JsonObject, Step } from "../api/types";
+import type { DriftCheckResult, ExploratoryReplay, JsonObject, RegressionItem, RegressionRunResult, Run, RunDetail, Step, StrictReplay, Warning } from "../api/types";
 import { Button } from "../components/ui/Button";
 import { Badge } from "../components/ui/Badge";
 import { Card, CardHeader, CardBody } from "../components/ui/Card";
@@ -15,8 +15,8 @@ import { stepName, stepSubtitle, pickFirstToolStep, ROUTE_OPTIONS } from "../lib
 
 
 
-export function JiraPanelApp() {
-  const [issueKey, setIssueKey] = useState<string | null>(null);
+export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: string }) {
+  const [issueKey, setIssueKey] = useState<string | null>(initialIssueKey || null);
   const [apiBase] = useState(getInitialApiBase);
   const api = useMemo(() => new ProxyTraceApi(apiBase.replace(/\/$/, "")), [apiBase]);
 
@@ -24,14 +24,19 @@ export function JiraPanelApp() {
   const [busy, setBusy] = useState<string | null>(null);
   const [run, setRun] = useState<Run | null>(null);
   const [detail, setDetail] = useState<RunDetail | null>(null);
+  const [runs, setRuns] = useState<Run[]>([]);
   
   const [strictReplay, setStrictReplay] = useState<StrictReplay | null>(null);
   const [exploratoryReplay, setExploratoryReplay] = useState<ExploratoryReplay | null>(null);
   const [promotedId, setPromotedId] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<Warning[]>([]);
+  const [driftResult, setDriftResult] = useState<DriftCheckResult | null>(null);
+  const [regressions, setRegressions] = useState<RegressionItem[]>([]);
+  const [regressionResult, setRegressionResult] = useState<RegressionRunResult | null>(null);
 
   const [patchBoard, setPatchBoard] = useState("PLATFORM");
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
-  const [showGraph, setShowGraph] = useState(false);
+  const [showGraph, setShowGraph] = useState(true);
   const [timelineMode, setTimelineMode] = useState<"original" | "simulated">("original");
 
   const patchStep = useMemo(
@@ -44,8 +49,20 @@ export function JiraPanelApp() {
     return Array.isArray(steps) ? (steps as JsonObject[]) : [];
   }, [exploratoryReplay]);
 
+  const driftWarnings = useMemo(
+    () => warnings.filter((warning) => warning.warning_type.includes("drift")),
+    [warnings]
+  );
+
+  const issueRegressions = useMemo(() => {
+    const runIds = new Set(runs.map((item) => item.run_id));
+    return regressions.filter((item) => runIds.has(item.run_id));
+  }, [regressions, runs]);
+
   // 1. Get Jira Context
   useEffect(() => {
+    if (initialIssueKey) return;
+
     // Skip Forge import completely if running locally
     if (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
       console.log("Running locally, skipping @forge/bridge");
@@ -73,24 +90,31 @@ export function JiraPanelApp() {
         console.warn("Not running in Forge:", err);
         setIssueKey("SCRUM-1");
       });
-  }, []);
-
-  const [runs, setRuns] = useState<Run[]>([]);
+  }, [initialIssueKey]);
 
   // 2. Load latest trace for this issue
   useEffect(() => {
     if (!issueKey) return;
+    const currentIssueKey = issueKey;
     
     async function loadData() {
       setLoading(true);
       try {
-        const response = await api.get<{ runs: Run[] }>(`/runs?jira_issue_key=${issueKey}&limit=10`);
+        const [response, regressionResponse] = await Promise.all([
+          api.get<{ runs: Run[] }>(`/runs?jira_issue_key=${encodeURIComponent(currentIssueKey)}&limit=10`),
+          api.get<{ regressions: RegressionItem[] }>("/regression?limit=50"),
+        ]);
         setRuns(response.runs);
+        setRegressions(regressionResponse.regressions);
         const latestRun = response.runs[0];
         if (latestRun) {
           setRun(latestRun);
-          const runDetail = await api.get<RunDetail>(`/runs/${latestRun.run_id}`);
+          const [runDetail, warningResponse] = await Promise.all([
+            api.get<RunDetail>(`/runs/${latestRun.run_id}`),
+            api.get<{ warnings: Warning[] }>(`/runs/${latestRun.run_id}/warnings`),
+          ]);
           setDetail(runDetail);
+          setWarnings(warningResponse.warnings);
         }
       } catch (err) {
         console.error("Failed to load trace", err);
@@ -107,9 +131,15 @@ export function JiraPanelApp() {
     setDetail(null);
     setStrictReplay(null);
     setExploratoryReplay(null);
+    setDriftResult(null);
     try {
-      const runDetail = await api.get<RunDetail>(`/runs/${selectedRun.run_id}`);
+      const [runDetail, warningResponse] = await Promise.all([
+        api.get<RunDetail>(`/runs/${selectedRun.run_id}`),
+        api.get<{ warnings: Warning[] }>(`/runs/${selectedRun.run_id}/warnings`),
+      ]);
       setDetail(runDetail);
+      setWarnings(warningResponse.warnings);
+      setSelectedStepId(runDetail.steps[0]?.step_id ?? null);
     } catch (err) {
       console.error(err);
     }
@@ -164,10 +194,49 @@ export function JiraPanelApp() {
     setBusy("promote");
     try {
       await api.post("/regression/promote", { replay_id: exploratoryReplay.replay_id });
+      const response = await api.get<{ regressions: RegressionItem[] }>("/regression?limit=50");
+      setRegressions(response.regressions);
       setPromotedId(exploratoryReplay.replay_id);
       showToast("Saved as regression test", "success");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Promote failed", "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function checkDrift() {
+    if (!run) return;
+    setBusy("drift");
+    try {
+      const result = await api.post<DriftCheckResult>(`/runs/${run.run_id}/drift/check-all`);
+      const warningResponse = await api.get<{ warnings: Warning[] }>(`/runs/${run.run_id}/warnings`);
+      setDriftResult(result);
+      setWarnings(warningResponse.warnings);
+      showToast(
+        result.all_clear ? "No workflow drift detected" : `${result.steps_drifted} step(s) drifted`,
+        result.all_clear ? "success" : "error"
+      );
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Drift check failed", "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runSavedTests() {
+    setBusy("regression");
+    try {
+      const result = await api.post<RegressionRunResult>("/regression/run-all");
+      const response = await api.get<{ regressions: RegressionItem[] }>("/regression?limit=50");
+      setRegressionResult(result);
+      setRegressions(response.regressions);
+      showToast(
+        `${result.passed}/${result.total} saved tests passed`,
+        result.failed === 0 ? "success" : "error"
+      );
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Saved tests failed", "error");
     } finally {
       setBusy(null);
     }
@@ -323,15 +392,117 @@ export function JiraPanelApp() {
       </div>
 
       {/* Drift Warning Banner */}
-      {detail.steps.some(s => (s.payload as any)?.status === "drift_warning") && (
+      {driftWarnings.length > 0 && (
         <div style={{ display: "flex", alignItems: "flex-start", gap: "10px", background: "var(--amber-dim)", border: "1px solid rgba(245,158,11,0.3)", padding: "12px", borderRadius: "var(--radius-md)" }}>
           <AlertTriangle size={16} style={{ color: "var(--amber)", flexShrink: 0, marginTop: "2px" }} />
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--amber-text)" }}>Schema Drift Detected</span>
-            <span style={{ fontSize: "12px", color: "var(--amber-text)", opacity: 0.9 }}>This run encountered a contract violation with the underlying Jira API.</span>
+            <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--amber-text)" }}>
+              {driftWarnings.length} Workflow Drift Warning{driftWarnings.length === 1 ? "" : "s"}
+            </span>
+            <span style={{ fontSize: "12px", color: "var(--amber-text)", opacity: 0.9 }}>
+              {driftWarnings[0]?.details || "A recorded tool contract changed from this run's baseline."}
+            </span>
           </div>
         </div>
       )}
+
+      {/* Workflow graph stays prominent in the compact Forge view. */}
+      <Card>
+        <CardHeader style={{ cursor: "pointer", paddingBottom: showGraph ? "12px" : "16px" }} onClick={() => setShowGraph(!showGraph)}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Activity size={15} style={{ color: "var(--blue)" }} />
+              <span style={{ fontSize: "14px", fontWeight: 600 }}>Workflow Visualizer</span>
+            </div>
+            {showGraph ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}
+          </div>
+        </CardHeader>
+        {showGraph && (
+          <div style={{ height: "360px", borderTop: "1px solid var(--border)", position: "relative" }}>
+            <WorkflowGraph
+              originalSteps={detail.steps}
+              patchedSteps={patchedSteps}
+              patchStep={patchStep}
+              height="100%"
+              compact
+              onNodeClick={(stepId) => {
+                setSelectedStepId(stepId);
+                document.getElementById("execution-timeline")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            />
+          </div>
+        )}
+      </Card>
+
+      {/* Critical checks stay available without leaving Jira. */}
+      <Card>
+        <CardHeader>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <ShieldCheck size={15} style={{ color: "var(--green-text)" }} />
+            <span style={{ fontSize: "14px", fontWeight: 600 }}>Run Health & Tests</span>
+          </div>
+        </CardHeader>
+        <CardBody style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+            <div style={{ padding: "10px", borderRadius: "var(--radius-md)", background: "var(--bg-raised)", border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Drift</div>
+              <div style={{ marginTop: "3px", fontSize: "16px", fontWeight: 700, color: driftWarnings.length ? "var(--amber-text)" : "var(--green-text)" }}>
+                {driftWarnings.length ? driftWarnings.length : "Clear"}
+              </div>
+            </div>
+            <div style={{ padding: "10px", borderRadius: "var(--radius-md)", background: "var(--bg-raised)", border: "1px solid var(--border)" }}>
+              <div style={{ fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Saved Tests</div>
+              <div style={{ marginTop: "3px", fontSize: "16px", fontWeight: 700 }}>{issueRegressions.length}</div>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<Play size={13} />}
+            loading={busy === "trace"}
+            onClick={() => void traceIssue()}
+            style={{ width: "100%" }}
+          >
+            Trace {issueKey} Again
+          </Button>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<ShieldCheck size={13} />}
+              loading={busy === "drift"}
+              onClick={() => void checkDrift()}
+              style={{ border: "1px solid var(--border)" }}
+            >
+              Check Drift
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<TestTube2 size={13} />}
+              loading={busy === "regression"}
+              disabled={regressions.length === 0}
+              onClick={() => void runSavedTests()}
+              style={{ border: "1px solid var(--border)" }}
+            >
+              Run Tests
+            </Button>
+          </div>
+
+          {driftResult && (
+            <div style={{ fontSize: "11px", color: driftResult.all_clear ? "var(--green-text)" : "var(--amber-text)", textAlign: "center" }}>
+              Drift check: {driftResult.steps_checked} tool step{driftResult.steps_checked === 1 ? "" : "s"} checked · {driftResult.steps_drifted} changed
+            </div>
+          )}
+          {regressionResult && (
+            <div style={{ fontSize: "11px", color: regressionResult.failed === 0 ? "var(--green-text)" : "var(--rose-text)", textAlign: "center" }}>
+              Saved tests: {regressionResult.passed}/{regressionResult.total} passed
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
       {/* Timeline Inspector Accordion */}
       <div id="execution-timeline">
       <Card>
@@ -420,34 +591,6 @@ export function JiraPanelApp() {
         </CardBody>
       </Card>
       </div>
-
-      {/* Workflow Graph Toggle */}
-      <Card>
-        <CardHeader style={{ cursor: "pointer", paddingBottom: showGraph ? "12px" : "16px" }} onClick={() => setShowGraph(!showGraph)}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <Activity size={15} style={{ color: "var(--blue)" }} />
-              <span style={{ fontSize: "14px", fontWeight: 600 }}>Workflow Visualizer</span>
-            </div>
-            {showGraph ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}
-          </div>
-        </CardHeader>
-        {showGraph && (
-          <div style={{ height: "350px", borderTop: "1px solid var(--border)", position: "relative" }}>
-            <WorkflowGraph 
-              originalSteps={detail.steps} 
-              patchedSteps={patchedSteps} 
-              patchStep={patchStep} 
-              height="100%" 
-              compact={true}
-              onNodeClick={(stepId) => {
-                setSelectedStepId(stepId);
-                document.getElementById('execution-timeline')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-            />
-          </div>
-        )}
-      </Card>
 
       {/* Safe Replay */}
       <Card>

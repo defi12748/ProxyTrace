@@ -16,7 +16,7 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
 
 
 def mount_frontend(app: FastAPI, dist_dir: Path) -> bool:
-    """Serve the built Vite app when frontend/dist is present."""
+    """Serve the built Vite app when the configured dist directory is present."""
     dist_dir = dist_dir.resolve()
     index_path = dist_dir / "index.html"
     if not index_path.is_file():

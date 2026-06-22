@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { SearchBar } from "../ui/SearchBar";
 import { Bell, ExternalLink } from "lucide-react";
 
@@ -24,13 +24,30 @@ interface TopBarProps {
 /* Matches dotrack Header.js: bg-[#F5F6F8] border-b border-[#DEE0E7], search + notification + contact */
 export function TopBar({ onSearch }: TopBarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
   const pageLabel = getPageLabel(location.pathname);
 
+  useEffect(() => {
+    if (location.pathname === "/traces") {
+      setSearch(new URLSearchParams(location.search).get("search") ?? "");
+    }
+  }, [location.pathname, location.search]);
+
   function handleSearch(v: string) {
     setSearch(v);
     onSearch?.(v);
+    if (!v.trim() && location.pathname === "/traces" && location.search) {
+      navigate("/traces");
+    }
+  }
+
+  function submitSearch(value: string) {
+    const query = value.trim();
+    if (!query) return;
+    onSearch?.(query);
+    navigate(`/traces?search=${encodeURIComponent(query)}`);
   }
 
   return (
@@ -60,7 +77,12 @@ export function TopBar({ onSearch }: TopBarProps) {
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
 
         {/* Animated search bar — matches dotrack SearchBar */}
-        <SearchBar value={search} onChange={handleSearch} />
+        <SearchBar
+          value={search}
+          onChange={handleSearch}
+          onSubmit={submitSearch}
+          placeholder="Search issue, run ID, or status…"
+        />
 
         {/* Notification bell — matches dotrack notification button */}
         <div style={{ position: "relative" }}>

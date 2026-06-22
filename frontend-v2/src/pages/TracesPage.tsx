@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Database, Play, RefreshCw } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageShell } from "../components/layout/PageShell";
 import { RunCard } from "../components/traces/RunCard";
 import { Button } from "../components/ui/Button";
@@ -28,16 +28,24 @@ export function TracesPage({ initialIssueKey = "" }: { initialIssueKey?: string 
   const [apiBase] = useState(getInitialApiBase);
   const api = useMemo(() => new ProxyTraceApi(apiBase), [apiBase]);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const globalSearch = searchParams.get("search")?.trim() ?? "";
 
   const [runs, setRuns] = useState<Run[]>([]);
-  const [issueFilter, setIssueFilter] = useState(initialIssueKey);
-  const [search, setSearch] = useState("");
+  const [issueFilter, setIssueFilter] = useState(globalSearch ? "" : initialIssueKey);
+  const [search, setSearch] = useState(globalSearch);
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [statusTab, setStatusTab] = useState("all");
   const [traceKey, setTraceKey] = useState(initialIssueKey);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setSearch(globalSearch);
+    if (globalSearch) setIssueFilter("");
+    setPage(1);
+  }, [globalSearch]);
 
   const load = useCallback(async () => {
     setBusy("load");
