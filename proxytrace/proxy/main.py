@@ -45,5 +45,12 @@ app.include_router(regression.router)
 app.include_router(drift.router)
 app.include_router(jira.router)
 
-_FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend-v2" / "dist"
-mount_frontend(app, _FRONTEND_DIST)
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_FRONTEND_DIST_CANDIDATES = (
+    _PROJECT_ROOT / "frontend-v2" / "dist",
+    _PROJECT_ROOT / "frontend" / "dist",
+)
+
+for _frontend_dist in _FRONTEND_DIST_CANDIDATES:
+    if mount_frontend(app, _frontend_dist):
+        break

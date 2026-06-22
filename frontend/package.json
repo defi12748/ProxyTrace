@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
-    "build": "tsc -b && vite build",
+    "build": "npm --prefix ../frontend-v2 ci && npm --prefix ../frontend-v2 run build",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
