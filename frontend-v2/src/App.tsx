@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { BrowserRouter, HashRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
 import { ToastContainer } from "./components/ui/Toast";
@@ -12,7 +12,6 @@ import { DriftPage } from "./pages/DriftPage";
 import { RegressionPage } from "./pages/RegressionPage";
 import { TourProvider, useTour } from "./components/tour/TourProvider";
 import { JiraPanelApp } from "./pages/JiraPanelApp";
-import { useState } from "react";
 
 function GlobalTourTracker() {
   const { hasSeen, startTour } = useTour();
@@ -126,9 +125,17 @@ function GlobalTourTracker() {
   return null;
 }
 
-export function App() {
+export function App({
+  initialIssueKey = "",
+  useHashRouter = false,
+}: {
+  initialIssueKey?: string;
+  useHashRouter?: boolean;
+}) {
+  const Router = useHashRouter ? HashRouter : BrowserRouter;
+
   return (
-    <BrowserRouter>
+    <Router>
       {/* Full-viewport row: sidebar | main column */}
       <div className="app-layout">
         <Sidebar />
@@ -140,8 +147,8 @@ export function App() {
           <main className="app-content">
             <div className="page-body">
               <Routes>
-                <Route path="/"                      element={<DashboardPage />} />
-                <Route path="/traces"                element={<TracesPage />} />
+                <Route path="/"                      element={<DashboardPage initialIssueKey={initialIssueKey} />} />
+                <Route path="/traces"                element={<TracesPage initialIssueKey={initialIssueKey} />} />
                 <Route path="/traces/:runId"         element={<TraceDetailPage />} />
                 <Route path="/traces/:runId/replay"  element={<ReplayStudioPage />} />
                 <Route path="/drift"                 element={<DriftPage />} />
@@ -156,72 +163,75 @@ export function App() {
       <CommandPalette />
       <ToastContainer />
       <GlobalTourTracker />
-    </BrowserRouter>
+    </Router>
   );
 }
 
 export function AppWrapper() {
-  const [isForge, setIsForge] = useState<boolean | null>(null);
+  const [runtime, setRuntime] = useState<{
+    ready: boolean;
+    isForge: boolean;
+    issueKey: string;
+  }>({ ready: false, isForge: false, issueKey: "" });
+  const isPanelPreview = window.location.pathname === "/panel-preview";
 
   useEffect(() => {
-    // Check if user wants to force the panel preview locally
-    if (window.location.pathname === "/panel-preview") {
-      setIsForge(true);
+    if (isPanelPreview) {
+      setRuntime({ ready: true, isForge: false, issueKey: "SCRUM-1" });
       return;
     }
 
-    // Check if we're running inside the Atlassian Forge environment
     import("@forge/bridge")
       .then(({ view }) => {
         view.getContext()
           .then((context) => {
-            setIsForge(Boolean(context));
+            const issueKey = (context as {
+              extension?: { issue?: { key?: string } };
+            })?.extension?.issue?.key;
+            setRuntime({ ready: true, isForge: true, issueKey: issueKey ?? "" });
           })
           .catch(() => {
-            setIsForge(false);
+            setRuntime({ ready: true, isForge: false, issueKey: "" });
           });
       })
       .catch(() => {
-        setIsForge(false);
+        setRuntime({ ready: true, isForge: false, issueKey: "" });
       });
-  }, []);
+  }, [isPanelPreview]);
 
-  if (isForge === null) {
-    return null; // Loading environment state
+  if (!runtime.ready) {
+    return null;
   }
 
-  if (isForge) {
-    if (window.location.pathname === "/panel-preview") {
-      return (
-        <div style={{ 
-          width: "350px", 
-          margin: "40px auto", 
-          border: "1px solid var(--border-strong)", 
-          borderRadius: "var(--radius-lg)", 
-          boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-          background: "var(--bg-base)",
-          overflow: "hidden",
-          minHeight: "500px"
-        }}>
-          <div style={{ background: "var(--bg-surface)", padding: "10px", borderBottom: "1px solid var(--border)", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textAlign: "center" }}>
-            Jira Sidebar Preview (350px)
-          </div>
-          <JiraPanelApp />
-          <ToastContainer />
-        </div>
-      );
-    }
+  // Keep the focused widget available for local review, but Forge itself gets
+  // the complete console so tracing, history, replay, and regression stay intact.
+  if (isPanelPreview) {
     return (
-      <>
+      <div style={{
+        width: "350px",
+        margin: "40px auto",
+        border: "1px solid var(--border-strong)",
+        borderRadius: "var(--radius-lg)",
+        boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+        background: "var(--bg-base)",
+        overflow: "hidden",
+        minHeight: "500px"
+      }}>
+        <div style={{ background: "var(--bg-surface)", padding: "10px", borderBottom: "1px solid var(--border)", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textAlign: "center" }}>
+          Jira Sidebar Preview (350px)
+        </div>
         <JiraPanelApp />
         <ToastContainer />
-      </>
+      </div>
     );
   }
 
   return (
     <TourProvider>
-      <App />
+      <App
+        initialIssueKey={runtime.issueKey}
+        useHashRouter={runtime.isForge}
+      />
     </TourProvider>
   );
 }

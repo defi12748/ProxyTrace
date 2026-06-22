@@ -209,6 +209,13 @@ async def list_regression_items(
     return list(result.scalars().all())
 
 
+async def get_regression_item(
+    session: AsyncSession,
+    test_id: str,
+) -> RegressionPackItem | None:
+    return await session.get(RegressionPackItem, test_id)
+
+
 async def get_contract(
     session: AsyncSession, tool_name: str, version: str = "v1"
 ) -> ToolContract | None:

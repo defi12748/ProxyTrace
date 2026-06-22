@@ -30,7 +30,7 @@ function buildSparkData(runs: Run[]) {
   return days;
 }
 
-export function DashboardPage() {
+export function DashboardPage({ initialIssueKey = "" }: { initialIssueKey?: string }) {
   const [apiBase] = useState(getInitialApiBase);
   const api = useMemo(() => new ProxyTraceApi(apiBase), [apiBase]);
   const navigate = useNavigate();
@@ -38,7 +38,7 @@ export function DashboardPage() {
   const [runs, setRuns] = useState<Run[]>([]);
   const [regressions, setRegressions] = useState<RegressionItem[]>([]);
   const [warnings, setWarnings] = useState<Warning[]>([]);
-  const [traceKey, setTraceKey] = useState("");
+  const [traceKey, setTraceKey] = useState(initialIssueKey);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
 

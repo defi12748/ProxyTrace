@@ -24,17 +24,17 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE = 12;
 
-export function TracesPage() {
+export function TracesPage({ initialIssueKey = "" }: { initialIssueKey?: string }) {
   const [apiBase] = useState(getInitialApiBase);
   const api = useMemo(() => new ProxyTraceApi(apiBase), [apiBase]);
   const navigate = useNavigate();
 
   const [runs, setRuns] = useState<Run[]>([]);
-  const [issueFilter, setIssueFilter] = useState("");
+  const [issueFilter, setIssueFilter] = useState(initialIssueKey);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [statusTab, setStatusTab] = useState("all");
-  const [traceKey, setTraceKey] = useState("");
+  const [traceKey, setTraceKey] = useState(initialIssueKey);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [page, setPage] = useState(1);

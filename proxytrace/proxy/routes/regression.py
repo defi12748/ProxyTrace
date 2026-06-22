@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from proxytrace.db.repository import (
+    get_regression_item,
     get_replay,
     list_regression_items,
 )
@@ -59,3 +60,28 @@ async def run_all_regressions(
     )
     await session.commit()
     return result
+
+
+@router.post("/regression/{test_id}/run")
+async def run_regression(
+    test_id: str,
+    request: RegressionRunAllRequest | None = None,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    item = await get_regression_item(session, test_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="regression test not found")
+
+    candidate_traces = request.candidate_traces if request else {}
+    result = await runner.run_item(
+        session,
+        item,
+        candidate_trace=candidate_traces.get(test_id),
+    )
+    await session.commit()
+    return {
+        "total": 1,
+        "passed": int(result["passed"]),
+        "failed": int(not result["passed"]),
+        "results": [result],
+    }

@@ -216,15 +216,14 @@ export function WorkflowGraph({
         onNodeClick={onNodeClick ? (_e, node) => onNodeClick(node.data.stepId as string) : undefined}
       >
         <Background color="var(--border-strong)" gap={16} size={1} />
+        <Controls
+          style={{
+            boxShadow: "var(--shadow-md)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+          }}
+        />
         {!compact && (
-          <>
-            <Controls
-              style={{
-                boxShadow: "var(--shadow-md)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-md)",
-              }}
-            />
             <MiniMap
               nodeColor={(n) => {
                 if (n.style?.background?.toString().includes("var(--purple)"))
@@ -239,7 +238,6 @@ export function WorkflowGraph({
                 background: "var(--bg-surface)",
               }}
             />
-          </>
         )}
       </ReactFlow>
     </div>

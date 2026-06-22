@@ -1,6 +1,7 @@
 import {
   Background,
   Controls,
+  MiniMap,
   ReactFlow,
 } from "@xyflow/react";
 import { buildGraph, stepName, stepSubtitle } from "../../lib/utils";
@@ -170,7 +171,28 @@ export function TrajectoryGraph({
           size={1}
           color="rgba(255,255,255,0.03)"
         />
-        <Controls showInteractive={false} />
+        <Controls
+          showInteractive={false}
+          style={{
+            boxShadow: "var(--shadow-md)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+          }}
+        />
+        <MiniMap
+          nodeColor={(node) =>
+            node.className?.toString().includes("pt-patched") ? "#B882FE" : "#63B3ED"
+          }
+          maskColor="rgba(245, 246, 248, 0.65)"
+          pannable
+          zoomable
+          style={{
+            boxShadow: "var(--shadow-md)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+            background: "var(--bg-surface)",
+          }}
+        />
       </ReactFlow>
 
       {/* Node CSS injected inline (ReactFlow class overrides) */}
