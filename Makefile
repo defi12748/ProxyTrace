@@ -1,7 +1,7 @@
 # ProxyTrace – local dev convenience targets
 # Requires: Python 3.11+, a virtual environment at .venv/, and DATABASE_URL in .env
 
-.PHONY: install migrate seed dev test lint
+.PHONY: install migrate seed dev test test-postgres lint
 
 install:
 	python -m venv .venv
@@ -22,6 +22,9 @@ dev:
 
 test:
 	.venv/Scripts/pytest tests/ -v
+
+test-postgres:
+	powershell -ExecutionPolicy Bypass -File scripts/test-with-postgres.ps1
 
 # Show pending migrations without applying them
 migrate-check:

@@ -196,6 +196,32 @@ Expected replay properties:
 - `request_match_rate` compares current tool parameters/model prompts with the recording
 - side-effect warnings are written to `drift_warnings`
 
+## Test Path
+
+The fastest reproducible backend verification path now uses a disposable Postgres container so a fresh clone does not depend on a manually prepared database.
+
+Windows / PowerShell:
+
+```powershell
+make test-postgres
+```
+
+Cross-platform shell:
+
+```bash
+./scripts/test-with-postgres.sh
+```
+
+Both commands:
+
+- start Postgres from `docker-compose.test.yml`
+- wait for the healthcheck
+- run `alembic upgrade head`
+- execute `python -m pytest -q`
+- tear the container down automatically
+
+If you already have a working `DATABASE_URL`, plain `python -m pytest -q` still works.
+
 ## Database Migrations
 
 ProxyTrace uses [Alembic](https://alembic.sqlalchemy.org/) for schema management.
@@ -299,6 +325,18 @@ Invoke-RestMethod "$baseUrl/runs/$runId/warnings"
 ```
 
 The strict replay should report `live_call_count=0`, `determinism_rate=1.0`, and a blocked `update_ticket` side effect warning for runs that include the write step.
+
+## Continuous Integration
+
+GitHub Actions now runs the same core verification path on every push and pull request:
+
+- provisions PostgreSQL 16 as a service
+- installs Python dependencies
+- applies Alembic migrations
+- runs `python -m pytest -q`
+- builds `frontend-v2`
+
+The workflow lives at `.github/workflows/ci.yml`.
 
 ## Forge Jira Issue Panel
 
@@ -404,6 +442,16 @@ Label targets for the evaluation set are defined in `proxytrace/data/labels.json
 - 2 schema drift warnings
 
 Run `python -m proxytrace.evaluation --no-ai` for the deterministic proof, or omit `--no-ai` with `GEMINI_API_KEY` configured for blind AI scoring. The runner removes labels before evaluator calls, computes determinism from fixture-controller execution, invokes the real firewall for blocking metrics, and reports unavailable AI metrics as `N/A`. Committed outputs are `evaluation_report.md`, `evaluation_results.json`, and `proxytrace/data/synthetic_traces.json`.
+
+Current committed AI-backed results:
+
+- divergence localization accuracy: `50.0%`
+- judge agreement rate: `65.0%`
+- semantic outcome accuracy: `64.7%`
+- human-review rate: `5.0%`
+- Gemini fallback rate: `5.0%`
+
+One immediate rerun on `2026-06-23` held judge agreement and localization steady (`65.0%`, `50.0%`) while semantic outcome accuracy moved slightly to `66.7%` and fallback dropped from `5.0%` to `0.0%`, so the current evidence is "stable enough to report, but still meaningfully non-deterministic."
 
 ## Repository Structure
 
