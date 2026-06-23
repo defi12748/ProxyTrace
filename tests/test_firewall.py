@@ -24,3 +24,27 @@ def test_firewall_blocks_write_tools_in_strict_replay() -> None:
 
     assert decision.allowed is False
     assert decision.action == "side_effect_blocked"
+
+
+def test_firewall_blocks_destructive_priority_escalation() -> None:
+    contract = ToolContract(
+        tool_name="escalate_ticket",
+        version="v1",
+        tool_type="destructive",
+        input_schema_hash="sha256:in",
+        output_schema_hash="sha256:out",
+        descriptor_hash="sha256:desc",
+        side_effect=True,
+        requires_approval=True,
+        replay_policy="mock_only",
+        trust_level="trusted_internal",
+    )
+
+    decision = SideEffectFirewall().inspect_replay_call(
+        tool_name="escalate_ticket",
+        params={"issue_key": "SAFE-1", "priority": "Highest"},
+        contract=contract,
+    )
+
+    assert decision.allowed is False
+    assert decision.action == "side_effect_blocked"

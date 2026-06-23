@@ -13,6 +13,10 @@ class JiraConfigError(RuntimeError):
     """Raised when the Atlassian credentials needed for real Jira calls are absent."""
 
 
+class JiraSandboxViolation(RuntimeError):
+    """Raised when a mutating call targets anything except the configured sandbox."""
+
+
 @dataclass(frozen=True)
 class JiraIssue:
     key: str
@@ -114,6 +118,38 @@ class JiraClient:
             },
         )
 
+    async def set_priority(self, issue_key: str, priority: str) -> dict[str, Any]:
+        issue_key = issue_key.strip().upper()
+        priority = priority.strip()
+        sandbox_project = self.settings.atlassian_sandbox_project_key.strip().upper()
+        if not sandbox_project:
+            raise JiraSandboxViolation(
+                "ATLASSIAN_SANDBOX_PROJECT_KEY is required before Jira field mutations."
+            )
+        if not issue_key or not priority:
+            raise ValueError("issue_key and priority are required for a Jira priority change")
+
+        before = await self.get_issue(issue_key)
+        if before.project_key.upper() != sandbox_project:
+            raise JiraSandboxViolation(
+                f"Refusing to mutate {issue_key}: project {before.project_key!r} is not "
+                f"the configured sandbox project {sandbox_project!r}."
+            )
+
+        await self._request(
+            "PUT",
+            f"/rest/api/3/issue/{issue_key}",
+            json={"fields": {"priority": {"name": priority}}},
+        )
+        return {
+            "updated": True,
+            "issue_key": issue_key,
+            "project_key": before.project_key,
+            "priority": priority,
+            "status": "jira_priority_updated",
+            "source": "jira_cloud",
+        }
+
     async def _request(
         self,
         method: str,
@@ -128,5 +164,7 @@ class JiraClient:
         ) as client:
             response = await client.request(method, path, **kwargs)
             response.raise_for_status()
-            return response.json()
-
+            if not response.content:
+                return {}
+            data = response.json()
+            return data if isinstance(data, dict) else {"data": data}

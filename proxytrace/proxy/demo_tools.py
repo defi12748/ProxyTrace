@@ -47,7 +47,20 @@ async def update_ticket(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def escalate_ticket(params: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "updated": True,
+        "issue_key": params.get("issue_key"),
+        "project_key": params.get("board"),
+        "priority": params.get("priority") or "High",
+        "reason": params.get("reason"),
+        "status": "mocked_priority_escalation",
+        "source": "demo_tool",
+    }
+
+
 DEMO_TOOL_HANDLERS = {
     "get_project_key": get_project_key,
     "update_ticket": update_ticket,
+    "escalate_ticket": escalate_ticket,
 }

@@ -1,14 +1,21 @@
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Activity, Bell, ExternalLink, Menu, Search, X } from "lucide-react";
 import { SearchBar } from "../ui/SearchBar";
-import { Bell, ExternalLink, Menu } from "lucide-react";
 
 const ROUTE_LABELS: Record<string, string> = {
-  "/":           "Dashboard",
-  "/traces":     "Traces",
-  "/drift":      "Drift",
+  "/": "Dashboard",
+  "/traces": "Traces",
+  "/drift": "Drift",
   "/regression": "Regression",
 };
+
+const MOBILE_NAV_ITEMS = [
+  { to: "/", label: "Dashboard" },
+  { to: "/traces", label: "Traces" },
+  { to: "/drift", label: "Drift" },
+  { to: "/regression", label: "Tests" },
+];
 
 function getPageLabel(pathname: string): string {
   if (ROUTE_LABELS[pathname]) return ROUTE_LABELS[pathname];
@@ -23,24 +30,31 @@ interface TopBarProps {
   onToggleSidebar?: () => void;
 }
 
-/* Matches dotrack Header.js: bg-[#F5F6F8] border-b border-[#DEE0E7], search + notification + contact */
 export function TopBar({ onSearch, isMobile = false, onToggleSidebar }: TopBarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const mobileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const pageLabel = getPageLabel(location.pathname);
 
   useEffect(() => {
     if (location.pathname === "/traces") {
       setSearch(new URLSearchParams(location.search).get("search") ?? "");
     }
+    setNotifOpen(false);
+    setMobileSearchOpen(false);
   }, [location.pathname, location.search]);
 
-  function handleSearch(v: string) {
-    setSearch(v);
-    onSearch?.(v);
-    if (!v.trim() && location.pathname === "/traces" && location.search) {
+  useEffect(() => {
+    if (mobileSearchOpen) mobileInputRef.current?.focus();
+  }, [mobileSearchOpen]);
+
+  function handleSearch(value: string) {
+    setSearch(value);
+    onSearch?.(value);
+    if (!value.trim() && location.pathname === "/traces" && location.search) {
       navigate("/traces");
     }
   }
@@ -53,149 +67,131 @@ export function TopBar({ onSearch, isMobile = false, onToggleSidebar }: TopBarPr
   }
 
   return (
-    <header
-      style={{
-        height: "50px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: "12px",
-        padding: isMobile ? "0 12px" : "0 24px",
-        background: "var(--bg-base)",
-        borderBottom: "1px solid var(--border)",
-        flexShrink: 0,
-        position: "sticky",
-        top: 0,
-        zIndex: 50,
-      }}
-    >
-      {/* Left: current page breadcrumb */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-        {isMobile && onToggleSidebar && (
-          <button
-            type="button"
-            aria-label="Open navigation menu"
-            onClick={onToggleSidebar}
-            style={{
-              width: "34px",
-              height: "34px",
-              display: "grid",
-              placeItems: "center",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--border)",
-              background: "var(--bg-surface)",
-              color: "var(--text-secondary)",
-              flexShrink: 0,
-            }}
-          >
-            <Menu size={16} />
-          </button>
-        )}
-        <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-secondary)" }}>
-          {pageLabel}
-        </span>
-      </div>
-
-      {/* Right: search + notifications + contact */}
-      <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "6px" : "8px", minWidth: 0 }}>
-
-        {/* Animated search bar — matches dotrack SearchBar */}
-        <SearchBar
-          value={search}
-          onChange={handleSearch}
-          onSubmit={submitSearch}
-          placeholder="Search issue, run ID, or status…"
-          compact={isMobile}
-        />
-
-        {/* Notification bell — matches dotrack notification button */}
-        <div style={{ position: "relative" }}>
-          <button
-            onClick={() => setNotifOpen(!notifOpen)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "6px 10px",
-              borderRadius: "var(--radius-md)",
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              color: "var(--text-secondary)",
-              fontSize: "12px",
-              fontWeight: 600,
-              transition: "background var(--transition)",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-raised)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-          >
-            <Bell size={15} />
-            {!isMobile && <span>Notifications</span>}
-          </button>
-
-          {/* Notification panel */}
-          {notifOpen && (
-            <div
-              style={{
-                position: "absolute",
-                top: "calc(100% + 8px)",
-                right: 0,
-                zIndex: 100,
-                width: "300px",
-                background: "var(--bg-surface)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-xl)",
-                boxShadow: "0px 0px 12px 0px rgba(179,180,198,0.40)",
-                overflow: "hidden",
-                animation: "fadeIn 150ms ease",
-              }}
+    <header className={isMobile ? "topbar topbar--mobile" : "topbar"}>
+      <div className="topbar__main">
+        <div className="topbar__identity">
+          {isMobile && onToggleSidebar && (
+            <button
+              type="button"
+              className="topbar__icon-button"
+              aria-label="Open navigation menu"
+              aria-haspopup="dialog"
+              onClick={onToggleSidebar}
             >
-              <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
-                <h3 style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>Notifications</h3>
-              </div>
-              <div style={{ padding: "32px 16px", textAlign: "center" }}>
-                <Bell size={28} style={{ color: "var(--border-strong)", margin: "0 auto 8px" }} />
-                <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>No new notifications</p>
-              </div>
-            </div>
+              <Menu size={19} />
+            </button>
           )}
+
+          {isMobile ? (
+            <NavLink to="/" className="topbar__brand" aria-label="ProxyTrace dashboard">
+              <span className="topbar__brand-mark"><Activity size={15} /></span>
+              <span className="topbar__brand-name">ProxyTrace</span>
+            </NavLink>
+          ) : (
+            <span className="topbar__page-label">{pageLabel}</span>
+          )}
+
+          {isMobile && <span className="topbar__mobile-page">{pageLabel}</span>}
         </div>
 
-        {/* Divider */}
-        {!isMobile && <div style={{ width: "1px", height: "20px", background: "var(--border)" }} />}
+        <div className="topbar__actions">
+          {isMobile ? (
+            <button
+              type="button"
+              className="topbar__icon-button"
+              aria-label={mobileSearchOpen ? "Close search" : "Search traces"}
+              aria-expanded={mobileSearchOpen}
+              onClick={() => setMobileSearchOpen((open) => !open)}
+            >
+              {mobileSearchOpen ? <X size={17} /> : <Search size={17} />}
+            </button>
+          ) : (
+            <SearchBar
+              value={search}
+              onChange={handleSearch}
+              onSubmit={submitSearch}
+              placeholder="Search issue, run ID, or status…"
+            />
+          )}
 
-        {/* Contact / docs link — matches dotrack Contact button */}
-        <a
-          href="https://proxytrace.onrender.com/docs"
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "5px",
-            padding: "5px 10px",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--text-secondary)",
-            background: "var(--bg-base)",
-            color: "var(--text-secondary)",
-            fontSize: "12px",
-            fontWeight: 600,
-            textDecoration: "none",
-            transition: "all var(--transition)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "var(--text-primary)";
-            e.currentTarget.style.borderColor = "var(--text-primary)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "var(--text-secondary)";
-            e.currentTarget.style.borderColor = "var(--text-secondary)";
+          <div className="topbar__notification">
+            <button
+              type="button"
+              className={isMobile ? "topbar__icon-button" : "topbar__text-button"}
+              aria-label="Notifications"
+              aria-expanded={notifOpen}
+              onClick={() => setNotifOpen((open) => !open)}
+            >
+              <Bell size={16} />
+              {!isMobile && <span>Notifications</span>}
+            </button>
+
+            {notifOpen && (
+              <div className="topbar__notification-panel">
+                <div className="topbar__notification-title">Notifications</div>
+                <div className="topbar__notification-empty">
+                  <Bell size={26} />
+                  <span>No new notifications</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {!isMobile && (
+            <>
+              <span className="topbar__divider" />
+              <a
+                className="topbar__docs-link"
+                href="https://proxytrace.onrender.com/docs"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span>API Docs</span>
+                <ExternalLink size={12} />
+              </a>
+            </>
+          )}
+        </div>
+      </div>
+
+      {isMobile && mobileSearchOpen && (
+        <form
+          className="topbar__mobile-search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submitSearch(search);
           }}
         >
-          {!isMobile && <span>API Docs</span>}
-          <ExternalLink size={11} />
-        </a>
-      </div>
+          <Search size={16} />
+          <input
+            ref={mobileInputRef}
+            value={search}
+            onChange={(event) => handleSearch(event.target.value)}
+            placeholder="Search issue, run ID, or status…"
+            aria-label="Search traces"
+          />
+          {search && (
+            <button type="button" aria-label="Clear search" onClick={() => handleSearch("")}>
+              <X size={14} />
+            </button>
+          )}
+        </form>
+      )}
+
+      {isMobile && (
+        <nav className="topbar__mobile-nav" aria-label="Primary navigation">
+          {MOBILE_NAV_ITEMS.map(({ to, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/"}
+              className={({ isActive }) => isActive ? "active" : undefined}
+            >
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+      )}
     </header>
   );
 }

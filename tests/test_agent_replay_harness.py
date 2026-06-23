@@ -101,6 +101,37 @@ class FakeGenerator:
         }
 
 
+class EscalationRuntime:
+    def __init__(self) -> None:
+        self.tool_calls: list[tuple[str, dict[str, Any]]] = []
+
+    async def decide(self, *, stage: str, **_: Any) -> dict[str, Any]:
+        if stage == "initial_triage":
+            return {
+                "next_tool": "get_project_key",
+                "candidate_board": "SECURITY",
+                "reason": "Authentication outage.",
+            }
+        return {
+            "next_tool": "escalate_ticket",
+            "board": "SECURITY",
+            "priority": "Highest",
+            "reason": "All users are locked out.",
+        }
+
+    async def call_tool(
+        self,
+        *,
+        tool_name: str,
+        params: dict[str, Any],
+        snapshot: dict[str, Any],
+    ) -> dict[str, Any]:
+        self.tool_calls.append((tool_name, params))
+        if tool_name == "get_project_key":
+            return {"response": {"project_key": "SECURITY", "confidence": 1.0}}
+        return {"response": {"updated": True, "priority": params["priority"]}}
+
+
 async def test_strict_runtime_executes_current_workflow_with_zero_live_calls() -> None:
     runtime = InterceptedReplayRuntime(
         recorded_steps=_recorded_steps(),
@@ -156,3 +187,25 @@ async def test_exploratory_runtime_executes_downstream_decision_after_patch() ->
     assert update["payload"]["params"]["board"] == "PLATFORM"
     assert update["source"] == "simulated_tool_interceptor"
     assert update["firewall"]["allowed"] is False
+
+
+async def test_workflow_takes_real_escalation_branch_for_high_impact_issue() -> None:
+    runtime = EscalationRuntime()
+
+    result = await JiraTriageWorkflow().execute(
+        runtime,
+        issue_key="SAFE-1",
+        summary="Authentication outage",
+        description="All users are locked out.",
+    )
+
+    assert result["final_decision"]["next_tool"] == "escalate_ticket"
+    assert runtime.tool_calls[-1] == (
+        "escalate_ticket",
+        {
+            "issue_key": "SAFE-1",
+            "board": "SECURITY",
+            "priority": "Highest",
+            "reason": "All users are locked out.",
+        },
+    )

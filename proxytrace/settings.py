@@ -50,6 +50,9 @@ class Settings:
     atlassian_email: str = os.getenv("ATLASSIAN_EMAIL", "")
     atlassian_api_token: str = os.getenv("ATLASSIAN_API_TOKEN", "")
     atlassian_project_key: str = os.getenv("ATLASSIAN_PROJECT_KEY", "")
+    atlassian_sandbox_project_key: str = os.getenv(
+        "ATLASSIAN_SANDBOX_PROJECT_KEY", ""
+    )
     auth_required: bool = _as_bool(os.getenv("AUTH_REQUIRED"), default=False)
     proxytrace_api_key: str = os.getenv("PROXYTRACE_API_KEY", "")
     proxytrace_workspace_id: str = os.getenv(

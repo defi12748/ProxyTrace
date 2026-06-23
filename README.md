@@ -14,7 +14,7 @@ Execution tracing, deterministic replay, and regression capture for enterprise A
 
 ProxyTrace is a debugging and evaluation layer for tool-using AI agents in enterprise workflows. It records an agent run as a structured trace, reruns the current agent workflow against recorded interceptors, blocks side-effecting tools during replay, and lets a developer patch a boundary before executing the downstream branch.
 
-The current implementation targets a Jira triage agent with two tools: `get_project_key` (read-only Jira project lookup) and `update_ticket` (controlled Jira write, currently implemented as a trace comment).
+The current implementation targets a Jira triage agent with three workflow tools: `get_project_key` (read-only Jira project lookup), `update_ticket` (a reversible trace comment), and `escalate_ticket` (a real priority mutation restricted to a configured Jira sandbox project).
 
 The backend and the Phase 2 replay/evaluation path are implemented and verified against Neon PostgreSQL. The full-stack Render deployment is live at `https://proxytrace.onrender.com`: Render builds the React console, runs Alembic migrations, starts the FastAPI API, and serves the frontend from the same service. The Forge Custom UI issue context panel is deployed in the development environment and installed on `proxytrace.atlassian.net`, where it embeds the ProxyTrace console directly inside Jira issues.
 
@@ -45,12 +45,13 @@ ProxyTrace addresses this by preserving model/tool responses and serving them th
 | Regression capture | Implemented. Promotions freeze assertions, while regression runs execute the current agent from the saved patch boundary and compare the fresh candidate trace. |
 | Data sensitivity | Implemented for capture paths with recursive redaction before prompt/tool payloads are stored. |
 | Contract drift detection | Implemented. `/tool-proxy/call` records descriptor hashes, checks drift automatically, and drift endpoints support on-demand re-checks. |
+| Transparent interception | Implemented for `JiraClient`. A one-time `jira_patch.install()` reroutes existing Jira reads, comments, and priority changes through the recorded tool gateway without changing each call site. |
 | API isolation | Implemented with optional fail-closed bearer/API-key auth, a server-pinned workspace for authenticated callers, workspace-scoped queries, and an explicit CORS allowlist. |
 | Frontend console | Implemented as a React/Vite operator console for Jira issue trigger, trace list, timeline, inspector, replay, patch, diff, drift, and regression flows. It is hosted on Render and embedded in Jira through Forge Custom UI. |
 
 ### Known Limits
 
-1. The real Jira write is a reversible trace comment, not a board/project migration.
+1. The destructive Jira demo mutates priority only inside `ATLASSIAN_SANDBOX_PROJECT_KEY`; it does not move issues between projects or transition workflow status.
 2. Exploratory replay is currently specialized to the Jira triage workflow. The patch engine itself no longer contains board-specific propagation rules.
 3. The tool gateway is a typed HTTP gateway, not an MCP JSON-RPC server. The legacy `POST /mcp` alias remains hidden for backward compatibility only.
 4. API-key auth is suitable for this single-workspace deployment; multi-user production should use an identity provider and short-lived user tokens.
@@ -60,7 +61,9 @@ ProxyTrace addresses this by preserving model/tool responses and serving them th
 ```mermaid
 graph LR
     Agent["Demo / Enterprise Agent"] -->|"LLM call"| LLM["Gemini Capture Adapter"]
-    Agent -->|"tool call"| Proxy["Tool Proxy Gateway"]
+    Agent -->|"explicit SDK tool call"| Proxy["Tool Proxy Gateway"]
+    Agent -->|"ordinary JiraClient call"| JiraPatch["Transparent Jira Patch"]
+    JiraPatch --> Proxy
     LLM --> Store[("Trace Store<br/>Neon PostgreSQL")]
     Proxy --> Contracts["Tool Contract Registry"]
     Contracts --> Firewall["Side-Effect Firewall"]
@@ -80,7 +83,7 @@ ProxyTrace captures the model layer and the tool layer separately. The tool prox
 | Layer | Captures | Current Integration |
 |---|---|---|
 | Gemini SDK capture adapter | system prompt, messages, model name, response payload, token usage, prompt/response hashes | wraps `google.genai.Client.models.generate_content(...)` and posts snapshots to `POST /llm/capture` when a run context is active |
-| Tool Proxy Gateway | tool name, input parameters, output payload, latency, status, side-effect class, contract hashes, drift result | agent calls `POST /tool-proxy/call`; the gateway validates the registered contract, records the step, executes the live handler during recording, and checks drift immediately |
+| Tool Proxy Gateway | tool name, input parameters, output payload, latency, status, side-effect class, contract hashes, drift result | explicit SDK calls and transparently patched `JiraClient` calls reach `POST /tool-proxy/call`; the gateway validates the contract, records the step, executes the live handler during recording, and checks drift immediately |
 | Trace Store | run metadata, ordered steps, snapshots, replay verdicts, warnings, regression packs | Neon PostgreSQL with JSONB snapshots and async SQLAlchemy access |
 
 ## Replay, Patch & Scoring
@@ -153,7 +156,7 @@ python -m pip install -e ".[dev]"
 # Apply the Alembic migration (creates all tables)
 alembic upgrade head
 
-# Seed default tool contracts (get_project_key, update_ticket)
+# Seed default workflow and transparent-intercept tool contracts
 python -m proxytrace.db.init_db
 ```
 
@@ -303,7 +306,27 @@ ATLASSIAN_SITE_URL=https://proxytrace.atlassian.net
 ATLASSIAN_EMAIL=...
 ATLASSIAN_API_TOKEN=...
 ATLASSIAN_PROJECT_KEY=SCRUM
+ATLASSIAN_SANDBOX_PROJECT_KEY=SCRUM
 ```
+
+`ATLASSIAN_SANDBOX_PROJECT_KEY` is mandatory for `escalate_ticket` and transparent priority changes. The Jira client reads the issue first and refuses the mutation unless its project key matches this value.
+
+### Transparent Jira interception
+
+Existing code can continue calling `JiraClient` directly. Install the patch once after a ProxyTrace run has been created; the call sites themselves remain unchanged.
+
+```python
+from proxytrace.atlassian import jira_patch
+from proxytrace.atlassian.jira_client import JiraClient
+
+jira_patch.install(run_id="<active-run-id>")
+
+# These ordinary calls are now recorded by /tool-proxy/call.
+issue = await JiraClient().get_issue("SCRUM-1")
+await JiraClient().set_priority(issue.key, "High")
+```
+
+For concurrent agents, use `jira_patch.install()` once and set a task-local run with `jira_patch.set_trace_context(run_id=...)`.
 
 Verify the deployed API:
 
@@ -324,7 +347,7 @@ Invoke-RestMethod -Method Post "$baseUrl/runs/$runId/replay/strict"
 Invoke-RestMethod "$baseUrl/runs/$runId/warnings"
 ```
 
-The strict replay should report `live_call_count=0`, `determinism_rate=1.0`, and a blocked `update_ticket` side effect warning for runs that include the write step.
+The strict replay should report `live_call_count=0`, `determinism_rate=1.0`, and a blocked side-effect warning for runs that include `update_ticket` or the destructive `escalate_ticket` branch.
 
 ## Continuous Integration
 

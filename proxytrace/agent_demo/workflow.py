@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 SYSTEM_PROMPT = (
     "You are a Jira triage agent. Inspect the ticket, choose the best project board, "
     "validate the project key with get_project_key, then update the ticket at most once. "
+    "Escalate security incidents, outages, and other high-impact tickets by setting their "
+    "priority; use a comment-only update for routine work. "
     "Every decision must be returned as strict JSON."
 )
 
@@ -28,8 +30,9 @@ class InitialTriageDecision(BaseModel):
 class FinalTriageDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    next_tool: Literal["update_ticket", "stop"]
+    next_tool: Literal["update_ticket", "escalate_ticket", "stop"]
     board: str | None = None
+    priority: Literal["Highest", "High"] | None = None
     reason: str = Field(min_length=1)
 
 
@@ -112,19 +115,24 @@ class JiraTriageWorkflow:
             }
 
         if not final.board:
-            raise AgentDecisionError("update_ticket decision requires a non-empty board")
+            raise AgentDecisionError("a Jira write decision requires a non-empty board")
+        if final.next_tool == "escalate_ticket" and not final.priority:
+            raise AgentDecisionError("escalate_ticket requires Highest or High priority")
 
         update = await runtime.call_tool(
             tool_name=final.next_tool,
             params={
                 "issue_key": issue_key,
                 "board": final.board,
+                **({"priority": final.priority} if final.priority else {}),
                 "reason": final.reason,
             },
             snapshot={
                 "candidate_board": initial.candidate_board,
                 "validated_project_key": tool_response.get("project_key"),
                 "model_selected_board": final.board,
+                "action_branch": final.next_tool,
+                "requested_priority": final.priority,
             },
         )
         return {
@@ -155,7 +163,9 @@ class JiraTriageWorkflow:
             {
                 "task": (
                     "Use the ticket semantics and validated lookup to decide whether "
-                    "to update the ticket. The board you return will be used verbatim."
+                    "to stop, add a routine trace comment with update_ticket, or set "
+                    "priority with escalate_ticket for a security incident, outage, or "
+                    "other high-impact ticket. The board and priority are used verbatim."
                 ),
                 "ticket": ticket,
                 "initial_decision": initial.model_dump(mode="json"),

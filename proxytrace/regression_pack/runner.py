@@ -149,7 +149,8 @@ class RegressionRunner:
     def _final_ticket_state(self, frozen_trace: list[dict[str, Any]]) -> dict[str, Any]:
         updates = [
             step for step in frozen_trace
-            if step.get("step_type") == "tool" and step.get("tool_name") == "update_ticket"
+            if step.get("step_type") == "tool"
+            and step.get("tool_name") in {"update_ticket", "escalate_ticket", "jira_set_priority"}
         ]
         if not updates:
             return {}
@@ -159,6 +160,7 @@ class RegressionRunner:
         return {
             "issue_key": response.get("issue_key") or params.get("issue_key"),
             "board": response.get("board") or params.get("board"),
+            "priority": response.get("priority") or params.get("priority"),
             "updated": response.get("updated"),
             "status": response.get("status"),
         }

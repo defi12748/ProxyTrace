@@ -1,24 +1,30 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, HashRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
 import { ToastContainer } from "./components/ui/Toast";
 import { CommandPalette } from "./components/ui/CommandPalette";
-import { DashboardPage } from "./pages/DashboardPage";
-import { TracesPage } from "./pages/TracesPage";
-import { TraceDetailPage } from "./pages/TraceDetailPage";
-import { ReplayStudioPage } from "./pages/ReplayStudioPage";
-import { DriftPage } from "./pages/DriftPage";
-import { RegressionPage } from "./pages/RegressionPage";
 import { TourProvider, useTour } from "./components/tour/TourProvider";
-import { JiraPanelApp } from "./pages/JiraPanelApp";
 import { useIsMobile } from "./lib/useIsMobile";
+
+const DashboardPage = lazy(() => import("./pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
+const TracesPage = lazy(() => import("./pages/TracesPage").then((module) => ({ default: module.TracesPage })));
+const TraceDetailPage = lazy(() => import("./pages/TraceDetailPage").then((module) => ({ default: module.TraceDetailPage })));
+const ReplayStudioPage = lazy(() => import("./pages/ReplayStudioPage").then((module) => ({ default: module.ReplayStudioPage })));
+const DriftPage = lazy(() => import("./pages/DriftPage").then((module) => ({ default: module.DriftPage })));
+const RegressionPage = lazy(() => import("./pages/RegressionPage").then((module) => ({ default: module.RegressionPage })));
+const JiraPanelApp = lazy(() => import("./pages/JiraPanelApp").then((module) => ({ default: module.JiraPanelApp })));
 
 function GlobalTourTracker() {
   const { hasSeen, startTour } = useTour();
   const location = useLocation();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
+    // Desktop tours target the persistent rail and wide content regions. On mobile,
+    // those targets live in an off-canvas drawer and would spotlight the wrong area.
+    if (isMobile) return;
+
     // Delay slightly so the page renders fully before spotlight measurement
     const timer = setTimeout(() => {
       const path = location.pathname;
@@ -121,7 +127,7 @@ function GlobalTourTracker() {
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [location.pathname, hasSeen, startTour]);
+  }, [location.pathname, hasSeen, isMobile, startTour]);
 
   return null;
 }
@@ -151,6 +157,15 @@ function AppFrame({ initialIssueKey = "" }: { initialIssueKey?: string }) {
     setMobileNavOpen(false);
   }, [location.pathname, location.search]);
 
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileNavOpen]);
+
   return (
     <>
       {/* Full-viewport row: sidebar | main column */}
@@ -170,15 +185,17 @@ function AppFrame({ initialIssueKey = "" }: { initialIssueKey?: string }) {
 
           <main className="app-content">
             <div className="page-body">
-              <Routes>
-                <Route path="/"                      element={<DashboardPage initialIssueKey={initialIssueKey} />} />
-                <Route path="/traces"                element={<TracesPage initialIssueKey={initialIssueKey} />} />
-                <Route path="/traces/:runId"         element={<TraceDetailPage />} />
-                <Route path="/traces/:runId/replay"  element={<ReplayStudioPage />} />
-                <Route path="/drift"                 element={<DriftPage />} />
-                <Route path="/regression"            element={<RegressionPage />} />
-                <Route path="*"                      element={<NotFound />} />
-              </Routes>
+              <Suspense fallback={<PageLoading />}>
+                <Routes>
+                  <Route path="/"                      element={<DashboardPage initialIssueKey={initialIssueKey} />} />
+                  <Route path="/traces"                element={<TracesPage initialIssueKey={initialIssueKey} />} />
+                  <Route path="/traces/:runId"         element={<TraceDetailPage />} />
+                  <Route path="/traces/:runId/replay"  element={<ReplayStudioPage />} />
+                  <Route path="/drift"                 element={<DriftPage />} />
+                  <Route path="/regression"            element={<RegressionPage />} />
+                  <Route path="*"                      element={<NotFound />} />
+                </Routes>
+              </Suspense>
             </div>
           </main>
         </div>
@@ -244,7 +261,7 @@ export function AppWrapper() {
         <div style={{ background: "var(--bg-surface)", padding: "10px", borderBottom: "1px solid var(--border)", fontSize: "12px", fontWeight: 600, color: "var(--text-muted)", textAlign: "center" }}>
           Jira Sidebar Preview (350px)
         </div>
-        <JiraPanelApp />
+        <Suspense fallback={<PageLoading compact />}><JiraPanelApp /></Suspense>
         <ToastContainer />
       </div>
     );
@@ -253,7 +270,7 @@ export function AppWrapper() {
   if (runtime.isForge) {
     return (
       <>
-        <JiraPanelApp initialIssueKey={runtime.issueKey} />
+        <Suspense fallback={<PageLoading compact />}><JiraPanelApp initialIssueKey={runtime.issueKey} /></Suspense>
         <ToastContainer />
       </>
     );
@@ -266,6 +283,15 @@ export function AppWrapper() {
         useHashRouter={runtime.isForge}
       />
     </TourProvider>
+  );
+}
+
+function PageLoading({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className={compact ? "route-loading route-loading--compact" : "route-loading"} role="status">
+      <span className="route-loading__spinner" />
+      <span>Loading workspace…</span>
+    </div>
   );
 }
 

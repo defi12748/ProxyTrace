@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 from proxytrace.contracts.registry import DEFAULT_TOOL_DESCRIPTORS, build_contract
 from proxytrace.contracts.schema_hasher import hash_schema
 from proxytrace.drift.checker import DriftKind
-from proxytrace.proxy.demo_tools import get_project_key, update_ticket
+from proxytrace.proxy.demo_tools import escalate_ticket, get_project_key, update_ticket
 from proxytrace.proxy.mcp_proxy import ToolProxyGateway
 from proxytrace.schemas import ToolCallRequest
 
@@ -102,6 +102,10 @@ async def test_default_contracts_match_demo_tool_response_shapes() -> None:
         "update_ticket",
         DEFAULT_TOOL_DESCRIPTORS["update_ticket"],
     )
+    escalation_contract = build_contract(
+        "escalate_ticket",
+        DEFAULT_TOOL_DESCRIPTORS["escalate_ticket"],
+    )
 
     project_response = await get_project_key(
         {
@@ -117,6 +121,15 @@ async def test_default_contracts_match_demo_tool_response_shapes() -> None:
             "reason": "The incident affects platform deployment.",
         }
     )
+    escalation_response = await escalate_ticket(
+        {
+            "issue_key": "DEMO-1",
+            "board": "SECURITY",
+            "priority": "High",
+            "reason": "Authentication is unavailable.",
+        }
+    )
 
     assert hash_schema(project_response) == project_contract.output_schema_hash
     assert hash_schema(update_response) == update_contract.output_schema_hash
+    assert hash_schema(escalation_response) == escalation_contract.output_schema_hash
