@@ -302,7 +302,7 @@ The strict replay should report `live_call_count=0`, `determinism_rate=1.0`, and
 
 ## Forge Jira Issue Panel
 
-The Forge app lives in `forge-app` and embeds the custom React console from `forge-app/static/hello-world` as a `jira:issueContext` module. It is deployed to the Forge development environment and installed on:
+The Forge app lives in `forge-app` and serves the same `frontend-v2/dist` bundle that Render hosts, so the Jira issue panel and the standalone console stay on the same codepath. It is deployed to the Forge development environment and installed on:
 
 ```text
 proxytrace.atlassian.net
@@ -321,17 +321,18 @@ Important Forge details:
 |---|---|
 | `forge-app/manifest.yml` | declares the `jira:issueContext` module, custom UI resource, resolver, Jira scope, and client/backend egress to Render |
 | `forge-app/src/index.js` | resolver used by the Forge app |
-| `forge-app/static/hello-world/src/App.tsx` | Forge-mounted React console |
-| `forge-app/static/hello-world/vite.config.ts` | Vite config with relative asset base for Forge static hosting |
+| `frontend-v2/src/pages/JiraPanelApp.tsx` | compact Forge issue-panel experience wired to `@forge/bridge` |
+| `frontend-v2/dist` | static bundle referenced by `forge-app/manifest.yml` |
+| `forge-app/static/hello-world/*` | legacy sandbox kept for early Forge experimentation; not the active production bundle |
 
-Deploy the Forge UI after changing the custom UI or manifest:
+Deploy the Forge UI after changing the shared console or manifest:
 
 ```powershell
-cd forge-app\static\hello-world
+cd frontend-v2
 npm install
 npm run build
 
-cd ..\..
+cd ..\forge-app
 forge lint
 forge deploy --non-interactive -e development
 ```
@@ -375,7 +376,7 @@ The latest verified Forge deployment fixed two integration issues:
 
 The standalone React console lives in `frontend-v2`. It uses `VITE_PROXYTRACE_API_URL` to call the FastAPI backend and defaults to `http://127.0.0.1:8000` in local development. On Render, `render.yaml` builds `frontend-v2/dist` and `proxytrace.proxy.frontend.mount_frontend()` serves it from the FastAPI app.
 
-The Forge issue-panel console lives in `forge-app/static/hello-world`. It shares the same core interaction model but reads Jira issue context from `@forge/bridge` and defaults production API calls to `https://proxytrace.onrender.com`.
+That same `frontend-v2` bundle also powers the Forge issue panel. `JiraPanelApp.tsx` reads Jira issue context from `@forge/bridge`, trims the layout for the sidebar surface, and defaults production API calls to `https://proxytrace.onrender.com`. The shared shell is now responsive for mobile and narrow viewport review, so the standalone dashboard and embedded panel degrade cleanly on smaller screens.
 
 On Windows, `start.ps1` starts the backend and frontend development processes and opens the console.
 
@@ -429,7 +430,7 @@ frontend-v2/           React/Vite ProxyTrace console deployed by Render
 forge-app/             Forge Custom UI issue-context app for Jira
   manifest.yml         Forge modules, resource, resolver, scopes, and egress
   src/                 Forge resolver function
-  static/hello-world/  Forge-mounted React/Vite console bundle
+  static/hello-world/  legacy Forge sandbox kept for experimentation
 alembic.ini            Alembic configuration
 render.yaml            Render web service configuration
 Makefile               local dev convenience targets

@@ -18,10 +18,12 @@ import { SkeletonMetric, Skeleton } from "../components/ui/Skeleton";
 import { showToast } from "../components/ui/Toast";
 import { ProxyTraceApi, getInitialApiBase, formatDate, compactId } from "../api/client";
 import type { RegressionItem, RegressionRunResult } from "../api/types";
+import { useIsMobile } from "../lib/useIsMobile";
 
 export function RegressionPage() {
   const [apiBase] = useState(getInitialApiBase);
   const api = useMemo(() => new ProxyTraceApi(apiBase), [apiBase]);
+  const isMobile = useIsMobile();
 
   const [regressions, setRegressions] = useState<RegressionItem[]>([]);
   const [runResult, setRunResult] = useState<RegressionRunResult | null>(null);
@@ -81,7 +83,7 @@ export function RegressionPage() {
       title="Regression Suite"
       subtitle="Fresh current-agent reruns checked against promoted assertions"
       actions={
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div style={{ display: "flex", gap: "8px", flexWrap: isMobile ? "wrap" : "nowrap" }}>
           <Button
             variant="ghost"
             icon={<RefreshCw size={14} />}
@@ -104,7 +106,7 @@ export function RegressionPage() {
       }
     >
       {/* Stats bar */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "12px" }}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonMetric key={i} />)
         ) : (
@@ -140,18 +142,19 @@ export function RegressionPage() {
 
       {/* Run result banner */}
       {runResult && (
-        <div
-          style={{
-            padding: "14px 18px",
-            borderRadius: "var(--radius-lg)",
-            border: `1px solid ${runResult.failed === 0 ? "#86efac" : "#fca5a5"}`,
-            background: runResult.failed === 0 ? "var(--green-dim)" : "var(--rose-dim)",
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            animation: "scaleIn 200ms ease forwards",
-          }}
-        >
+          <div
+            style={{
+              padding: "14px 18px",
+              borderRadius: "var(--radius-lg)",
+              border: `1px solid ${runResult.failed === 0 ? "#86efac" : "#fca5a5"}`,
+              background: runResult.failed === 0 ? "var(--green-dim)" : "var(--rose-dim)",
+              display: "flex",
+              alignItems: isMobile ? "flex-start" : "center",
+              flexWrap: isMobile ? "wrap" : "nowrap",
+              gap: "12px",
+              animation: "scaleIn 200ms ease forwards",
+            }}
+          >
           {runResult.failed === 0 ? (
             <CheckCircle2 size={20} style={{ color: "var(--green-text)", flexShrink: 0 }} />
           ) : (
@@ -188,14 +191,14 @@ export function RegressionPage() {
       <div id="tour-regression-list">
         <Card>
           <CardHeader>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <TestTube2 size={15} style={{ color: "var(--purple-text)" }} />
-            <span style={{ fontSize: "14px", fontWeight: 600 }}>Test Pack</span>
-          </div>
-          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-            {regressions.length} test{regressions.length !== 1 ? "s" : ""}
-          </span>
-        </CardHeader>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <TestTube2 size={15} style={{ color: "var(--purple-text)" }} />
+              <span style={{ fontSize: "14px", fontWeight: 600 }}>Test Pack</span>
+            </div>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+              {regressions.length} test{regressions.length !== 1 ? "s" : ""}
+            </span>
+          </CardHeader>
 
         {loading ? (
           <div>
@@ -236,12 +239,13 @@ export function RegressionPage() {
             />
           </CardBody>
         ) : (
-          <div>
+          <div className="table-scroll">
             {/* Table header */}
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "130px 130px 130px 80px 80px 1fr 120px 40px",
+                minWidth: "820px",
                 gap: "8px",
                 padding: "8px 16px",
                 borderBottom: "1px solid var(--border)",
@@ -274,6 +278,7 @@ export function RegressionPage() {
                     style={{
                       display: "grid",
                       gridTemplateColumns: "130px 130px 130px 80px 80px 1fr 120px 40px",
+                      minWidth: "820px",
                       gap: "8px",
                       padding: "11px 16px",
                       width: "100%",

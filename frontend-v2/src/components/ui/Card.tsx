@@ -38,6 +38,8 @@ export function CardHeader({ children, style, onClick }: CardHeaderProps) {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: "10px",
         padding: "12px 16px",
         borderBottom: "1px solid var(--border)",
         ...style,

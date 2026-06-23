@@ -12,6 +12,7 @@ import { DriftPage } from "./pages/DriftPage";
 import { RegressionPage } from "./pages/RegressionPage";
 import { TourProvider, useTour } from "./components/tour/TourProvider";
 import { JiraPanelApp } from "./pages/JiraPanelApp";
+import { useIsMobile } from "./lib/useIsMobile";
 
 function GlobalTourTracker() {
   const { hasSeen, startTour } = useTour();
@@ -136,13 +137,36 @@ export function App({
 
   return (
     <Router>
+      <AppFrame initialIssueKey={initialIssueKey} />
+    </Router>
+  );
+}
+
+function AppFrame({ initialIssueKey = "" }: { initialIssueKey?: string }) {
+  const isMobile = useIsMobile();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname, location.search]);
+
+  return (
+    <>
       {/* Full-viewport row: sidebar | main column */}
       <div className="app-layout">
-        <Sidebar />
+        <Sidebar
+          isMobile={isMobile}
+          mobileOpen={mobileNavOpen}
+          onClose={() => setMobileNavOpen(false)}
+        />
 
         {/* Right column: sticky topbar + scrollable content */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-          <TopBar />
+        <div className="app-main">
+          <TopBar
+            isMobile={isMobile}
+            onToggleSidebar={isMobile ? () => setMobileNavOpen((open) => !open) : undefined}
+          />
 
           <main className="app-content">
             <div className="page-body">
@@ -163,7 +187,7 @@ export function App({
       <CommandPalette />
       <ToastContainer />
       <GlobalTourTracker />
-    </Router>
+    </>
   );
 }
 

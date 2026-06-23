@@ -35,12 +35,14 @@ import type {
   StrictReplay,
   Warning,
 } from "../api/types";
+import { useIsMobile } from "../lib/useIsMobile";
 
 export function TraceDetailPage() {
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
   const [apiBase] = useState(getInitialApiBase);
   const api = useMemo(() => new ProxyTraceApi(apiBase), [apiBase]);
+  const isMobile = useIsMobile();
 
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [warnings, setWarnings] = useState<Warning[]>([]);
@@ -148,7 +150,7 @@ export function TraceDetailPage() {
   if (!detail && busy === "load") {
     return (
       <PageShell title={<Skeleton width="200px" height="28px" />}>
-        <div style={{ display: "grid", gridTemplateColumns: "260px 1fr 320px", gap: "12px", height: "calc(100vh - 220px)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "260px 1fr 320px", gap: "12px", height: isMobile ? "auto" : "calc(100vh - 220px)" }}>
           <SkeletonCard rows={10} />
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <SkeletonCard rows={5} />
@@ -209,7 +211,7 @@ export function TraceDetailPage() {
       title={titleContent}
       subtitle={subtitleContent}
       actions={
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div style={{ display: "flex", gap: "8px", flexWrap: isMobile ? "wrap" : "nowrap" }}>
           <Button variant="ghost" icon={<ArrowLeft size={14} />} onClick={() => navigate("/traces")}>
             Back
           </Button>
@@ -232,10 +234,10 @@ export function TraceDetailPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "260px 1fr 320px",
+          gridTemplateColumns: isMobile ? "1fr" : "260px 1fr 320px",
           gap: "12px",
-          height: "calc(100vh - 220px)",
-          minHeight: "500px",
+          height: isMobile ? "auto" : "calc(100vh - 220px)",
+          minHeight: isMobile ? "auto" : "500px",
         }}
       >
         {/* Left: Timeline */}
@@ -260,7 +262,7 @@ export function TraceDetailPage() {
         </Card>
 
         {/* Center: Inspector + Graph */}
-        <div style={{ display: "grid", gridTemplateRows: "1fr auto", gap: "12px", overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateRows: isMobile ? "auto auto" : "1fr auto", gap: "12px", overflow: "hidden" }}>
           {/* Step inspector */}
           <Card style={{ overflowY: "auto" }}>
             <CardHeader>
@@ -289,7 +291,7 @@ export function TraceDetailPage() {
           </Card>
 
           {/* Trajectory graph */}
-          <Card style={{ height: "280px", overflow: "hidden" }}>
+          <Card style={{ height: isMobile ? "320px" : "280px", overflow: "hidden" }}>
             <CardHeader style={{ paddingTop: "10px", paddingBottom: "10px" }}>
               <div style={{ fontSize: "13px", fontWeight: 600 }}>Trajectory Graph</div>
               <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
@@ -309,7 +311,7 @@ export function TraceDetailPage() {
         </div>
 
         {/* Right: Actions panel */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px", overflowY: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", overflowY: isMobile ? "visible" : "auto" }}>
           {/* Replay controls */}
           <Card>
             <CardHeader>

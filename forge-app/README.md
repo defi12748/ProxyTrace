@@ -1,6 +1,6 @@
-# Forge Hello World
+# Forge App
 
-This project contains a Forge app written in Javascript that displays `Hello World!` in a Jira issue panel. 
+This Forge app mounts the shared ProxyTrace console inside a Jira issue panel. The active Custom UI bundle comes from `../frontend-v2/dist`, which is the same build the standalone dashboard uses.
 
 See [developer.atlassian.com/platform/forge/](https://developer.atlassian.com/platform/forge) for documentation and tutorials explaining Forge.
 
@@ -15,20 +15,18 @@ See [Set up Forge](https://developer.atlassian.com/platform/forge/set-up-forge/)
 npm install
 ```
 
-- Install dependencies inside of the `static/hello-world` directory:
+- Modify the issue-panel UI in `../frontend-v2/src/pages/JiraPanelApp.tsx` or the shared console components it uses.
+
+- Build the shared frontend bundle:
 ```
+cd ../frontend-v2
 npm install
-```
-
-- Modify your app by editing the files in `static/hello-world/src/`.
-
-- Build your app (inside of the `static/hello-world` directory):
-```
 npm run build
 ```
 
-- Deploy your app by running:
+- Deploy the Forge wrapper:
 ```
+cd ../forge-app
 forge deploy
 ```
 
@@ -41,6 +39,7 @@ forge install
 - Use the `forge deploy` command when you want to persist code changes.
 - Use the `forge install` command when you want to install the app on a new site.
 - Once the app is installed on a site, the site picks up the new app changes you deploy without needing to rerun the install command.
+- `static/hello-world` is a legacy sandbox from the initial Forge spike and is not referenced by the current `manifest.yml`.
 
 ## Support
 

@@ -14,6 +14,7 @@ import { StructuredJson } from "../components/ui/StructuredJson";
 import { showToast } from "../components/ui/Toast";
 import { ProxyTraceApi, getInitialApiBase, formatDate, compactId } from "../api/client";
 import type { Warning } from "../api/types";
+import { useIsMobile } from "../lib/useIsMobile";
 
 const PAGE_SIZE = 15;
 
@@ -23,6 +24,7 @@ type DriftRow = Warning & { run?: RunRef };
 export function DriftPage() {
   const [apiBase] = useState(getInitialApiBase);
   const api = useMemo(() => new ProxyTraceApi(apiBase), [apiBase]);
+  const isMobile = useIsMobile();
 
   const [rows, setRows] = useState<DriftRow[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -94,7 +96,7 @@ export function DriftPage() {
       }
     >
       {/* Summary stats */}
-      <div id="tour-drift-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px" }}>
+      <div id="tour-drift-stats" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "12px" }}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonMetric key={i} />)
         ) : (
@@ -132,15 +134,15 @@ export function DriftPage() {
       <div id="tour-drift-list">
         <Card>
           <CardHeader>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <ShieldAlert size={15} style={{ color: "var(--amber)" }} />
-            <span style={{ fontSize: "14px", fontWeight: 600 }}>Drift Warnings</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <SearchBar value={search} onChange={(v: string) => { setSearch(v); setPage(1); }} placeholder="Search warnings…" />
-            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Click a row to expand</span>
-          </div>
-        </CardHeader>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <ShieldAlert size={15} style={{ color: "var(--amber)" }} />
+              <span style={{ fontSize: "14px", fontWeight: 600 }}>Drift Warnings</span>
+            </div>
+            <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", gap: "10px", flexDirection: isMobile ? "column" : "row" }}>
+              <SearchBar value={search} onChange={(v: string) => { setSearch(v); setPage(1); }} placeholder="Search warnings…" />
+              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Click a row to expand</span>
+            </div>
+          </CardHeader>
 
         {/* Action Required Banner */}
         {rows.length > 0 && !loading && (
@@ -206,12 +208,13 @@ export function DriftPage() {
             />
           </CardBody>
         ) : (
-          <div>
+          <div className="table-scroll">
             {/* Header row */}
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "160px 140px 130px 1fr 1fr 130px",
+                minWidth: "860px",
                 gap: "8px",
                 padding: "8px 16px",
                 borderBottom: "1px solid var(--border)",
@@ -250,6 +253,7 @@ export function DriftPage() {
                     style={{
                       display: "grid",
                       gridTemplateColumns: "160px 140px 130px 1fr 1fr 130px",
+                      minWidth: "860px",
                       gap: "8px",
                       padding: "10px 16px",
                       width: "100%",
@@ -305,7 +309,7 @@ export function DriftPage() {
                         animation: "fadeIn 150ms ease forwards",
                       }}
                     >
-                      {[
+                      {[ 
                         ["Warning ID", row.warning_id],
                         ["Run ID", row.run_id],
                         ["Step ID", row.step_id ?? "—"],
@@ -318,7 +322,7 @@ export function DriftPage() {
                           key={k}
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "130px 1fr",
+                            gridTemplateColumns: isMobile ? "1fr" : "130px 1fr",
                             gap: "10px",
                             fontSize: "12px",
                           }}

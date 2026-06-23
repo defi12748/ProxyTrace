@@ -25,12 +25,14 @@ import type {
   RunDetail,
   StrictReplay,
 } from "../api/types";
+import { useIsMobile } from "../lib/useIsMobile";
 
 export function ReplayStudioPage() {
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
   const [apiBase] = useState(getInitialApiBase);
   const api = useMemo(() => new ProxyTraceApi(apiBase), [apiBase]);
+  const isMobile = useIsMobile();
 
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [strictReplay, setStrictReplay] = useState<StrictReplay | null>(null);
@@ -130,7 +132,7 @@ export function ReplayStudioPage() {
       title="Replay Studio"
       subtitle={run ? `${run.jira_issue_key ?? compactId(run.run_id)} · ${formatDate(run.started_at)}` : "Loading…"}
       actions={
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div style={{ display: "flex", gap: "8px", flexWrap: isMobile ? "wrap" : "nowrap" }}>
           <Button variant="ghost" icon={<ArrowLeft size={14} />} onClick={() => navigate(`/traces/${runId}`)}>
             Back to Trace
           </Button>
@@ -352,9 +354,9 @@ export function ReplayStudioPage() {
                     }}
                   />
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: exploratoryReplay ? "1fr 1fr" : "1fr", minHeight: "200px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: exploratoryReplay && !isMobile ? "1fr 1fr" : "1fr", minHeight: "200px" }}>
                     {/* Original */}
-                    <div style={{ borderRight: exploratoryReplay ? "1px solid var(--border)" : "none", padding: "12px" }}>
+                    <div style={{ borderRight: exploratoryReplay && !isMobile ? "1px solid var(--border)" : "none", borderBottom: exploratoryReplay && isMobile ? "1px solid var(--border)" : "none", padding: "12px" }}>
                     <div style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--cyan)", marginBottom: "8px" }}>
                       Original
                     </div>

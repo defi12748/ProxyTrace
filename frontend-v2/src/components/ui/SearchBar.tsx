@@ -1,15 +1,25 @@
 import { useState, useRef } from "react";
 import { Search, X } from "lucide-react";
+import type { CSSProperties } from "react";
 
 interface SearchBarProps {
   value: string;
   onChange: (v: string) => void;
   onSubmit?: (v: string) => void;
   placeholder?: string;
+  compact?: boolean;
+  style?: CSSProperties;
 }
 
 /* Animated expanding search bar — identical to dotrack SearchBar.js */
-export function SearchBar({ value, onChange, onSubmit, placeholder = "Search…" }: SearchBarProps) {
+export function SearchBar({
+  value,
+  onChange,
+  onSubmit,
+  placeholder = "Search…",
+  compact = false,
+  style,
+}: SearchBarProps) {
   const [active, setActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -37,10 +47,16 @@ export function SearchBar({ value, onChange, onSubmit, placeholder = "Search…"
         background: active ? "var(--bg-surface)" : "transparent",
         border: active ? "1px solid var(--border)" : "1px solid transparent",
         boxShadow: active ? "var(--shadow-input)" : "none",
-        width: active ? "220px" : "130px",
+        width: active
+          ? compact ? "min(46vw, 170px)" : "220px"
+          : compact ? "42px" : "130px",
+        minWidth: active
+          ? compact ? "min(46vw, 170px)" : "220px"
+          : compact ? "42px" : "130px",
         transition: "all 0.3s ease",
         cursor: "pointer",
         overflow: "hidden",
+        ...style,
       }}
     >
       <button
@@ -74,7 +90,7 @@ export function SearchBar({ value, onChange, onSubmit, placeholder = "Search…"
       {/* Static label fades out */}
       {!active && (
         <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-          Search…
+          {compact ? "" : "Search…"}
         </span>
       )}
 

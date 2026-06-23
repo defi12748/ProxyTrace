@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
+  X,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -17,29 +18,52 @@ const NAV_ITEMS = [
   { id: "regression",  to: "/regression",  label: "Regression",  Icon: TestTube2 },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isMobile?: boolean;
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ isMobile = false, mobileOpen = false, onClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [hovering, setHovering] = useState(false);
 
   // Expand on hover when collapsed (dotrack behaviour)
-  const isCollapsed = collapsed && !hovering;
+  const isCollapsed = !isMobile && collapsed && !hovering;
 
-  return (
+  const sidebar = (
     <div
       id="tour-sidebar"
-      onMouseEnter={() => { if (collapsed) setHovering(true); }}
-      onMouseLeave={() => { if (collapsed) setHovering(false); }}
+      onMouseEnter={() => { if (!isMobile && collapsed) setHovering(true); }}
+      onMouseLeave={() => { if (!isMobile && collapsed) setHovering(false); }}
       style={{
-        width: isCollapsed ? "var(--sidebar-collapsed-width)" : "var(--sidebar-width)",
-        minWidth: isCollapsed ? "var(--sidebar-collapsed-width)" : "var(--sidebar-width)",
-        height: "100vh",
+        width: isMobile
+          ? "min(84vw, 320px)"
+          : isCollapsed
+            ? "var(--sidebar-collapsed-width)"
+            : "var(--sidebar-width)",
+        minWidth: isMobile
+          ? "min(84vw, 320px)"
+          : isCollapsed
+            ? "var(--sidebar-collapsed-width)"
+            : "var(--sidebar-width)",
+        height: "100dvh",
         display: "flex",
         flexDirection: "column",
         background: "var(--bg-base)",
         borderRight: "1px solid var(--border)",
-        transition: "width var(--transition-slow), min-width var(--transition-slow)",
+        transition: isMobile
+          ? "transform var(--transition-slow), box-shadow var(--transition-slow)"
+          : "width var(--transition-slow), min-width var(--transition-slow)",
         overflow: "hidden",
         flexShrink: 0,
+        position: isMobile ? "fixed" : "relative",
+        top: isMobile ? 0 : undefined,
+        left: isMobile ? 0 : undefined,
+        bottom: isMobile ? 0 : undefined,
+        zIndex: isMobile ? 120 : "auto",
+        transform: isMobile ? (mobileOpen ? "translateX(0)" : "translateX(-100%)") : "none",
+        boxShadow: isMobile && mobileOpen ? "var(--shadow-lg)" : "none",
       }}
     >
       {/* ── Logo header ── */}
@@ -86,8 +110,26 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Toggle button — only visible when not collapsed */}
-        {!isCollapsed && (
+        {isMobile ? (
+          <button
+            onClick={onClose}
+            aria-label="Close navigation menu"
+            style={{
+              width: "30px",
+              height: "32px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "var(--radius-md)",
+              border: "none",
+              background: "transparent",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+            }}
+          >
+            <X size={16} />
+          </button>
+        ) : !isCollapsed ? (
           <button
             onClick={() => setCollapsed(!collapsed)}
             style={{
@@ -109,10 +151,7 @@ export function Sidebar() {
           >
             <ChevronLeft size={16} />
           </button>
-        )}
-
-        {/* When collapsed, show expand icon */}
-        {isCollapsed && (
+        ) : (
           <button
             onClick={() => setCollapsed(false)}
             style={{
@@ -149,6 +188,7 @@ export function Sidebar() {
             key={id}
             to={to}
             end={to === "/"}
+            onClick={() => { if (isMobile) onClose?.(); }}
             style={{ textDecoration: "none" }}
           >
             {({ isActive }) => (
@@ -173,13 +213,13 @@ export function Sidebar() {
                   marginTop: "2px",
                 }}
                 onMouseEnter={(e) => {
-                  if (!isActive) {
+                  if (!isActive && !isMobile) {
                     e.currentTarget.style.background = "rgba(255,255,255,0.6)";
                     e.currentTarget.style.borderColor = "var(--border-strong)";
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (!isActive) {
+                  if (!isActive && !isMobile) {
                     e.currentTarget.style.background = "transparent";
                     e.currentTarget.style.borderColor = "transparent";
                   }
@@ -226,5 +266,26 @@ export function Sidebar() {
         {!isCollapsed && <span>v0.2 · Render backend</span>}
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {sidebar}
+      {isMobile && mobileOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation overlay"
+          onClick={onClose}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(48, 47, 55, 0.28)",
+            border: "none",
+            zIndex: 110,
+            cursor: "pointer",
+          }}
+        />
+      )}
+    </>
   );
 }

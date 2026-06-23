@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SearchBar } from "../ui/SearchBar";
-import { Bell, ExternalLink } from "lucide-react";
+import { Bell, ExternalLink, Menu } from "lucide-react";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/":           "Dashboard",
@@ -19,10 +19,12 @@ function getPageLabel(pathname: string): string {
 
 interface TopBarProps {
   onSearch?: (q: string) => void;
+  isMobile?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 /* Matches dotrack Header.js: bg-[#F5F6F8] border-b border-[#DEE0E7], search + notification + contact */
-export function TopBar({ onSearch }: TopBarProps) {
+export function TopBar({ onSearch, isMobile = false, onToggleSidebar }: TopBarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -57,7 +59,8 @@ export function TopBar({ onSearch }: TopBarProps) {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "0 24px",
+        gap: "12px",
+        padding: isMobile ? "0 12px" : "0 24px",
         background: "var(--bg-base)",
         borderBottom: "1px solid var(--border)",
         flexShrink: 0,
@@ -67,14 +70,34 @@ export function TopBar({ onSearch }: TopBarProps) {
       }}
     >
       {/* Left: current page breadcrumb */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+        {isMobile && onToggleSidebar && (
+          <button
+            type="button"
+            aria-label="Open navigation menu"
+            onClick={onToggleSidebar}
+            style={{
+              width: "34px",
+              height: "34px",
+              display: "grid",
+              placeItems: "center",
+              borderRadius: "var(--radius-md)",
+              border: "1px solid var(--border)",
+              background: "var(--bg-surface)",
+              color: "var(--text-secondary)",
+              flexShrink: 0,
+            }}
+          >
+            <Menu size={16} />
+          </button>
+        )}
         <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-secondary)" }}>
           {pageLabel}
         </span>
       </div>
 
       {/* Right: search + notifications + contact */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "6px" : "8px", minWidth: 0 }}>
 
         {/* Animated search bar — matches dotrack SearchBar */}
         <SearchBar
@@ -82,6 +105,7 @@ export function TopBar({ onSearch }: TopBarProps) {
           onChange={handleSearch}
           onSubmit={submitSearch}
           placeholder="Search issue, run ID, or status…"
+          compact={isMobile}
         />
 
         {/* Notification bell — matches dotrack notification button */}
@@ -106,7 +130,7 @@ export function TopBar({ onSearch }: TopBarProps) {
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
           >
             <Bell size={15} />
-            <span>Notifications</span>
+            {!isMobile && <span>Notifications</span>}
           </button>
 
           {/* Notification panel */}
@@ -138,7 +162,7 @@ export function TopBar({ onSearch }: TopBarProps) {
         </div>
 
         {/* Divider */}
-        <div style={{ width: "1px", height: "20px", background: "var(--border)" }} />
+        {!isMobile && <div style={{ width: "1px", height: "20px", background: "var(--border)" }} />}
 
         {/* Contact / docs link — matches dotrack Contact button */}
         <a
@@ -168,7 +192,7 @@ export function TopBar({ onSearch }: TopBarProps) {
             e.currentTarget.style.borderColor = "var(--text-secondary)";
           }}
         >
-          <span>API Docs</span>
+          {!isMobile && <span>API Docs</span>}
           <ExternalLink size={11} />
         </a>
       </div>

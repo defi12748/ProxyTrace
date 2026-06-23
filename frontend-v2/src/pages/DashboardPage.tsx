@@ -15,6 +15,7 @@ import { SkeletonMetric, SkeletonRow } from "../components/ui/Skeleton";
 import { SparkBar, DonutChart } from "../components/ui/Charts";
 import { ProxyTraceApi, getInitialApiBase, formatDate } from "../api/client";
 import type { Run, RegressionItem, Warning } from "../api/types";
+import { useIsMobile } from "../lib/useIsMobile";
 
 /* Build last-7-days data from run list */
 function buildSparkData(runs: Run[]) {
@@ -34,6 +35,7 @@ export function DashboardPage({ initialIssueKey = "" }: { initialIssueKey?: stri
   const [apiBase] = useState(getInitialApiBase);
   const api = useMemo(() => new ProxyTraceApi(apiBase), [apiBase]);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const [runs, setRuns] = useState<Run[]>([]);
   const [regressions, setRegressions] = useState<RegressionItem[]>([]);
@@ -183,7 +185,7 @@ export function DashboardPage({ initialIssueKey = "" }: { initialIssueKey?: stri
                 <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Breakdown</div>
                 <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>Run Status</h2>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: isMobile ? "wrap" : "nowrap" }}>
                 <div style={{ position: "relative", flexShrink: 0 }}>
                   <DonutChart segments={donutSegments} size={88} thickness={13} />
                   {/* Center label */}
@@ -192,7 +194,7 @@ export function DashboardPage({ initialIssueKey = "" }: { initialIssueKey?: stri
                     <span style={{ fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>total</span>
                   </div>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px", flex: 1, minWidth: isMobile ? "100%" : 0 }}>
                   {donutSegments.map((seg) => (
                     <div key={seg.label} style={{ display: "flex", alignItems: "center", gap: "7px", fontSize: "12px" }}>
                       <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: seg.color, flexShrink: 0 }} />
@@ -233,7 +235,7 @@ export function DashboardPage({ initialIssueKey = "" }: { initialIssueKey?: stri
         </div>
 
         {/* Right column */}
-        <div style={{ flex: "1 1 340px", display: "flex", flexDirection: "column", gap: "14px" }}>
+        <div style={{ flex: isMobile ? "1 1 100%" : "1 1 340px", display: "flex", flexDirection: "column", gap: "14px" }}>
 
           {/* Quick trace */}
           <div id="tour-quick-trace" className="premium-card animate-fade-in" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-sm)", "--stagger": "250ms" } as React.CSSProperties}>

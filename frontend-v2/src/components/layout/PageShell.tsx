@@ -22,7 +22,7 @@ export function PageShell({ title, subtitle, actions, children }: PageShellProps
           )}
         </div>
         {actions && (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0, flexWrap: "wrap" }}>
             {actions}
           </div>
         )}

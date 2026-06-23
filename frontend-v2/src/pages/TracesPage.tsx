@@ -14,6 +14,7 @@ import { SkeletonRow } from "../components/ui/Skeleton";
 import { showToast } from "../components/ui/Toast";
 import { ProxyTraceApi, getInitialApiBase } from "../api/client";
 import type { Run } from "../api/types";
+import { useIsMobile } from "../lib/useIsMobile";
 
 const SORT_OPTIONS = [
   { id: "newest",  label: "Newest first",  description: "Most recent runs at the top" },
@@ -28,6 +29,7 @@ export function TracesPage({ initialIssueKey = "" }: { initialIssueKey?: string 
   const [apiBase] = useState(getInitialApiBase);
   const api = useMemo(() => new ProxyTraceApi(apiBase), [apiBase]);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
   const globalSearch = searchParams.get("search")?.trim() ?? "";
 
@@ -208,7 +210,7 @@ export function TracesPage({ initialIssueKey = "" }: { initialIssueKey?: string 
       {/* Run grid */}
       <div id="tour-traces-list">
         {loading ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "10px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap: "10px" }}>
             {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
           </div>
         ) : paged.length === 0 ? (
@@ -225,7 +227,7 @@ export function TracesPage({ initialIssueKey = "" }: { initialIssueKey?: string 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
               gap: "10px",
             }}
           >
@@ -242,7 +244,7 @@ export function TracesPage({ initialIssueKey = "" }: { initialIssueKey?: string 
 
       {/* Footer: count + pagination */}
       {sorted.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", flexDirection: isMobile ? "column" : "row", gap: "10px" }}>
           <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
             Showing {paged.length} of {sorted.length} run{sorted.length !== 1 ? "s" : ""}
             {issueFilter && ` for "${issueFilter}"`}

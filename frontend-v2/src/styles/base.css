@@ -21,6 +21,7 @@ body {
   background: var(--bg-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 /* ---- Global element resets ---- */
@@ -144,4 +145,25 @@ hr {
 }
 .premium-button:active:not(:disabled) {
   filter: brightness(0.95);
+}
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 960px) {
+  .app-layout {
+    min-height: 100dvh;
+    height: 100dvh;
+  }
+
+  .page-body {
+    padding: 18px 16px 28px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
