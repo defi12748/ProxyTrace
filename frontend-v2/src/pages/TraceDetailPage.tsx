@@ -241,7 +241,7 @@ export function TraceDetailPage() {
         }}
       >
         {/* Left: Timeline */}
-        <Card style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <Card id="tour-trace-timeline" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <CardHeader>
             <div>
               <div style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "2px" }}>
@@ -264,7 +264,7 @@ export function TraceDetailPage() {
         {/* Center: Inspector + Graph */}
         <div style={{ display: "grid", gridTemplateRows: isMobile ? "auto auto" : "1fr auto", gap: "12px", overflow: "hidden" }}>
           {/* Step inspector */}
-          <Card style={{ overflowY: "auto" }}>
+          <Card id="tour-step-inspector" style={{ overflowY: "auto" }}>
             <CardHeader>
               <div>
                 <div style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "2px" }}>
@@ -291,7 +291,7 @@ export function TraceDetailPage() {
           </Card>
 
           {/* Trajectory graph */}
-          <Card style={{ height: isMobile ? "320px" : "280px", overflow: "hidden" }}>
+          <Card id="tour-trajectory-graph" style={{ height: isMobile ? "320px" : "280px", overflow: "hidden" }}>
             <CardHeader style={{ paddingTop: "10px", paddingBottom: "10px" }}>
               <div style={{ fontSize: "13px", fontWeight: 600 }}>Trajectory Graph</div>
               <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
@@ -313,7 +313,7 @@ export function TraceDetailPage() {
         {/* Right: Actions panel */}
         <div style={{ display: "flex", flexDirection: "column", gap: "12px", overflowY: isMobile ? "visible" : "auto" }}>
           {/* Replay controls */}
-          <Card>
+          <Card id="tour-replay-controls">
             <CardHeader>
               <div>
                 <div style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "2px" }}>

@@ -21,107 +21,179 @@ function GlobalTourTracker() {
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    // Desktop tours target the persistent rail and wide content regions. On mobile,
-    // those targets live in an off-canvas drawer and would spotlight the wrong area.
     if (isMobile) return;
 
-    // Delay slightly so the page renders fully before spotlight measurement
     const timer = setTimeout(() => {
       const path = location.pathname;
 
+      /* ── Dashboard ── */
       if (path === "/" && !hasSeen("dashboard-tour")) {
         startTour({
           id: "dashboard-tour",
           steps: [
             {
               target: "tour-sidebar",
-              title: "Welcome to ProxyTrace!",
-              description: "This is your main navigation. From here you can access your observability Dashboard, trace History, Drift alerts, and Regression test suites.",
+              title: "Your Navigation Rail",
+              description:
+                "This sidebar is your primary navigation. Use it to move between the Dashboard, Trace History, Drift Monitor, and Regression Suite. The active section is always highlighted.",
               placement: "right",
-              icon: "👋",
-            },
-            {
-              target: "tour-quick-trace",
-              title: "Start a Trace",
-              description: "Want to test an agent run? Enter a Jira issue key here to instantly trigger a trace and watch the agent's thought process live.",
-              placement: "left",
-              icon: "🚀",
             },
             {
               target: "tour-cmd-palette",
-              title: "Command Palette",
-              description: "Press Cmd+K (or Ctrl+K) anywhere to quickly search for traces, jump to pages, or execute common actions.",
+              title: "Global Command Palette",
+              description:
+                "Press Ctrl+K (or Cmd+K on Mac) anywhere to open the command palette. You can jump to any page, search for traces by Jira key, or trigger quick actions without reaching for the mouse.",
               placement: "bottom",
-              icon: "⌨️",
             },
             {
               target: "tour-recent-traces",
-              title: "Analyze Runs",
-              description: "Click on any recent trace to open the Replay Studio. There you can see every API call, identify drift, and safely replay agent decisions.",
+              title: "Recent Agent Runs",
+              description:
+                "This table shows your latest recorded agent executions, sorted by time. Each row shows the Jira issue the agent processed, its final status, and when it ran. Click any row to open the full Trace Inspector.",
               placement: "top",
-              icon: "🔍",
+            },
+            {
+              target: "tour-quick-trace",
+              title: "Trigger a New Trace",
+              description:
+                "Enter a Jira issue key here (e.g. SCRUM-12) and hit Enter or click 'Trace'. ProxyTrace will instruct the agent to process that issue and record every decision, API call, and state change it makes.",
+              placement: "left",
             },
           ],
         });
+
+      /* ── Trace History ── */
       } else if (path === "/traces" && !hasSeen("traces-tour")) {
         startTour({
           id: "traces-tour",
           steps: [
             {
               target: "tour-traces-search",
-              title: "Trace History",
-              description: "Here you can search and filter through all your past agent runs.",
+              title: "Search Your Trace History",
+              description:
+                "Use this search bar to filter traces by Jira issue key, run status, or date. ProxyTrace stores every recorded agent run here so you can replay or compare them at any time.",
               placement: "bottom",
-              icon: "📋",
             },
             {
               target: "tour-traces-list",
-              title: "Trace Details",
-              description: "Click on any trace row to open the Replay Studio and inspect the detailed execution steps.",
+              title: "Trace Rows",
+              description:
+                "Each row is one complete agent execution. The status badge shows whether the run completed, failed, or is still in progress. Click any row to open the three-panel Trace Inspector where you can step through every agent decision.",
               placement: "top",
-              icon: "🔍",
-            }
-          ]
+            },
+          ],
         });
+
+      /* ── Drift Monitor ── */
       } else if (path === "/drift" && !hasSeen("drift-tour")) {
         startTour({
           id: "drift-tour",
           steps: [
             {
               target: "tour-drift-stats",
-              title: "Drift Analysis",
-              description: "This page automatically monitors your agent runs for unexpected deviations, such as missing tool calls or changed payload structures.",
+              title: "Drift Overview Metrics",
+              description:
+                "These cards summarize how often your agent runs hit unexpected schema changes or contract violations. A high drift rate usually means the Jira API changed its response shape and the agent needs to adapt.",
               placement: "bottom",
-              icon: "🛡️",
             },
             {
               target: "tour-drift-list",
-              title: "Drift Alerts",
-              description: "Review individual drift events. You can dive into the exact step where the agent deviated from the baseline.",
+              title: "Individual Drift Events",
+              description:
+                "Each item here is a specific step in a run where the agent observed data that did not match the expected schema. Click an event to jump directly to that step inside the Trace Inspector.",
               placement: "top",
-              icon: "⚠️",
-            }
-          ]
+            },
+          ],
         });
+
+      /* ── Regression Suite ── */
       } else if (path === "/regression" && !hasSeen("regression-tour")) {
         startTour({
           id: "regression-tour",
           steps: [
             {
               target: "tour-regression-run-all",
-              title: "Automated Testing",
-              description: "You can save exploratory agent runs as Regression Tests. Use this button to re-run all your saved tests at once.",
+              title: "Run All Regression Tests",
+              description:
+                "Click here to replay every saved test at once. ProxyTrace re-executes each recorded exploratory run and checks whether the agent produces the same verdict. This catches regressions automatically when agent logic or the Jira API changes.",
               placement: "bottom",
-              icon: "🧪",
             },
             {
               target: "tour-regression-list",
-              title: "Test Suites",
-              description: "Each saved test tracks its pass/fail rate over time. Click 'Run' to execute an individual test suite.",
+              title: "Saved Test Cases",
+              description:
+                "Each item is a 'what-if' simulation you promoted from the Replay Studio. It stores the patch you applied, the expected verdict, and the historical pass rate. You can run a single test or delete tests that are no longer relevant.",
               placement: "top",
-              icon: "📊",
-            }
-          ]
+            },
+          ],
+        });
+
+      /* ── Trace Inspector (detail page) ── */
+      } else if (
+        /^\/traces\/[^/]+$/.test(path) &&
+        !hasSeen("trace-detail-tour")
+      ) {
+        startTour({
+          id: "trace-detail-tour",
+          steps: [
+            {
+              target: "tour-trace-timeline",
+              title: "Execution Timeline",
+              description:
+                "The left panel lists every step the agent executed in order, including LLM calls, tool calls, and state snapshots. Click any step to open its full details in the Inspector panel.",
+              placement: "right",
+            },
+            {
+              target: "tour-step-inspector",
+              title: "Step Inspector",
+              description:
+                "The center panel shows deep details for the selected step: the human-readable story of what happened, key facts like confidence scores and routing decisions, a JSON diff of how the agent\'s state changed, and the raw payload.",
+              placement: "bottom",
+            },
+            {
+              target: "tour-trajectory-graph",
+              title: "Trajectory Graph",
+              description:
+                "This graph renders the agent\'s full decision path as a flow diagram. Nodes represent steps; edges show the sequence. Click a node to jump directly to that step in the Timeline. When a simulation is active, the patched path is shown in purple.",
+              placement: "top",
+            },
+            {
+              target: "tour-replay-controls",
+              title: "Replay Controls",
+              description:
+                "Use \'Safe Replay\' to re-run the trace from stored data without touching Jira. Use \'Simulate Route\' to inject a hypothetical routing decision and see how the agent responds. Results appear inline — or open the full Replay Studio for a deeper comparison view.",
+              placement: "left",
+            },
+          ],
+        });
+
+      /* ── Replay Studio ── */
+      } else if (path.endsWith("/replay") && !hasSeen("replay-studio-tour")) {
+        startTour({
+          id: "replay-studio-tour",
+          steps: [
+            {
+              target: "tour-replay-safe",
+              title: "Safe Replay",
+              description:
+                "Run the trace again using only recorded data. All write operations (Jira comments, field updates) are intercepted and blocked. This lets you verify the agent is deterministic without any side-effects on your live Jira instance.",
+              placement: "right",
+            },
+            {
+              target: "tour-replay-whatif",
+              title: "What-If Simulation",
+              description:
+                "Choose a routing destination (e.g. PLATFORM, INFRASTRUCTURE) and click \'Simulate Route Change\'. ProxyTrace replaces the agent\'s real routing tool output with your chosen value and re-runs the downstream steps — showing you exactly how the agent would have behaved on a different project.",
+              placement: "right",
+            },
+            {
+              target: "tour-replay-results",
+              title: "Comparison Results",
+              description:
+                "After running a simulation, the right panel shows an AI-evaluated verdict on whether the behavior change is \'safe\'. The side-by-side timeline highlights the exact steps that diverged from the original. Once satisfied, promote the simulation to a permanent regression test.",
+              placement: "left",
+            },
+          ],
         });
       }
     }, 800);
@@ -131,6 +203,7 @@ function GlobalTourTracker() {
 
   return null;
 }
+
 
 export function App({
   initialIssueKey = "",

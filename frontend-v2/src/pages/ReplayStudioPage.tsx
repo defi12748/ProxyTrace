@@ -144,7 +144,7 @@ export function ReplayStudioPage() {
         {/* Left column — controls */}
         <div style={{ flex: "1 1 340px", display: "flex", flexDirection: "column", gap: "14px" }}>
           {/* Safe replay card */}
-          <Card>
+          <Card id="tour-replay-safe">
             <CardHeader>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <RotateCcw size={15} style={{ color: "var(--cyan)" }} />
@@ -169,7 +169,7 @@ export function ReplayStudioPage() {
           </Card>
 
           {/* What-if card */}
-          <Card>
+          <Card id="tour-replay-whatif">
             <CardHeader>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <Split size={15} style={{ color: "var(--violet)" }} />
@@ -267,7 +267,7 @@ export function ReplayStudioPage() {
         </div>
 
         {/* Right column — timeline and graph */}
-        <div style={{ flex: "2 1 500px", display: "flex", flexDirection: "column", gap: "16px", minWidth: 0 }}>
+        <div id="tour-replay-results" style={{ flex: "2 1 500px", display: "flex", flexDirection: "column", gap: "16px", minWidth: 0 }}>
           {/* AI Verdict */}
           {exploratoryReplay && (
             <Card>

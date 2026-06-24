@@ -25,8 +25,6 @@ export interface TourStep {
   description: string;
   /** Where the tooltip pops relative to the target */
   placement?: "top" | "bottom" | "left" | "right" | "center";
-  /** Optional icon (emoji or JSX string) */
-  icon?: string;
 }
 
 export interface TourDefinition {
@@ -123,7 +121,7 @@ function calcTooltipPosition(
 
 // ─── Overlay component ────────────────────────────────────────────────────────
 
-const TOOLTIP_W = 320;
+const TOOLTIP_W = 330;
 
 function TourOverlay({
   tour,
@@ -156,7 +154,6 @@ function TourOverlay({
     };
 
     findRect();
-    // Retry after paint in case element is rendered async
     const t1 = setTimeout(findRect, 100);
     const t2 = setTimeout(findRect, 400);
     return () => {
@@ -175,7 +172,6 @@ function TourOverlay({
   const isLast = stepIdx === tour.steps.length - 1;
   const placement = step.placement ?? "bottom";
 
-  // Spotlight rect with padding
   const PAD = 8;
   const spotlight = targetRect
     ? {
@@ -190,35 +186,17 @@ function TourOverlay({
     targetRect && placement !== "center"
       ? calcTooltipPosition(targetRect, placement, TOOLTIP_W, tooltipH)
       : calcTooltipPosition(
-          new DOMRect(
-            window.innerWidth / 2,
-            window.innerHeight / 2,
-            0,
-            0
-          ),
+          new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 0, 0),
           "center",
           TOOLTIP_W,
           tooltipH
         );
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 99000,
-        pointerEvents: "none",
-      }}
-    >
+    <div style={{ position: "fixed", inset: 0, zIndex: 99000, pointerEvents: "none" }}>
       {/* Dark overlay with spotlight cutout */}
       <svg
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          pointerEvents: "all",
-        }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "all" }}
         onClick={onSkip}
       >
         <defs>
@@ -236,12 +214,7 @@ function TourOverlay({
             )}
           </mask>
         </defs>
-        <rect
-          width="100%"
-          height="100%"
-          fill="rgba(30,27,38,0.6)"
-          mask="url(#tour-mask)"
-        />
+        <rect width="100%" height="100%" fill="rgba(10,8,20,0.75)" mask="url(#tour-mask)" />
       </svg>
 
       {/* Spotlight border glow */}
@@ -254,15 +227,15 @@ function TourOverlay({
             width: spotlight.width,
             height: spotlight.height,
             borderRadius: "10px",
-            border: "2px solid rgba(184,130,254,0.8)",
-            boxShadow: "0 0 0 4px rgba(184,130,254,0.15), 0 0 24px rgba(184,130,254,0.3)",
+            border: "1.5px solid rgba(167,139,250,0.85)",
+            boxShadow: "0 0 0 3px rgba(167,139,250,0.1), 0 0 32px rgba(167,139,250,0.2)",
             pointerEvents: "none",
             animation: "pulseBorder 2s ease-in-out infinite",
           }}
         />
       )}
 
-      {/* Tooltip card */}
+      {/* Tooltip card — original light design */}
       <div
         ref={tooltipRef}
         style={{
@@ -280,77 +253,77 @@ function TourOverlay({
           overflow: "hidden",
         }}
       >
-        {/* Header strip */}
+        {/* Gradient accent bar */}
+        <div style={{ height: "2px", background: "linear-gradient(90deg, #7C3AED 0%, #a78bfa 60%, transparent 100%)" }} />
+
+        {/* Header */}
         <div
           style={{
             background: "linear-gradient(135deg, #F2E8FF 0%, #E0D0FF 100%)",
             padding: "14px 18px 12px",
             borderBottom: "1px solid rgba(184,130,254,0.2)",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
           }}
         >
-          {step.icon && (
-            <span style={{ fontSize: "22px", lineHeight: 1 }}>{step.icon}</span>
-          )}
-          <div style={{ flex: 1 }}>
-            <div
-              style={{
-                fontSize: "10px",
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                color: "#7C3AED",
-                textTransform: "uppercase",
-                marginBottom: "2px",
-              }}
-            >
-              Step {stepIdx + 1} of {tour.steps.length}
-            </div>
-            <h3
-              style={{
-                margin: 0,
-                fontSize: "14px",
-                fontWeight: 700,
-                color: "#350566",
-                lineHeight: 1.2,
-              }}
-            >
-              {step.title}
-            </h3>
+          {/* Step counter pill */}
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "5px",
+            padding: "2px 10px",
+            borderRadius: "99px",
+            background: "rgba(124,58,237,0.12)",
+            border: "1px solid rgba(124,58,237,0.25)",
+            fontSize: "10px",
+            fontWeight: 700,
+            letterSpacing: "0.07em",
+            color: "#7C3AED",
+            textTransform: "uppercase",
+            marginBottom: "8px",
+          }}>
+            <span style={{ display: "inline-block", width: "4px", height: "4px", borderRadius: "50%", background: "#7C3AED" }} />
+            Step {stepIdx + 1} of {tour.steps.length}
           </div>
+          <h3
+            style={{
+              margin: 0,
+              fontSize: "14px",
+              fontWeight: 700,
+              color: "#350566",
+              lineHeight: 1.25,
+            }}
+          >
+            {step.title}
+          </h3>
         </div>
 
         {/* Body */}
-        <div style={{ padding: "14px 18px" }}>
+        <div style={{ padding: "14px 18px 16px" }}>
           <p
             style={{
               margin: "0 0 16px",
               fontSize: "13px",
               color: "#626073",
-              lineHeight: 1.6,
+              lineHeight: 1.65,
             }}
           >
             {step.description}
           </p>
 
-          {/* Progress dots */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              marginBottom: "14px",
-            }}
-          >
+          {/* Progress segments */}
+          <div style={{ display: "flex", gap: "4px", marginBottom: "14px" }}>
             {tour.steps.map((_, i) => (
               <div
                 key={i}
                 style={{
-                  width: i === stepIdx ? "20px" : "6px",
-                  height: "6px",
+                  flex: i === stepIdx ? 2.5 : 1,
+                  height: "4px",
                   borderRadius: "99px",
-                  background: i === stepIdx ? "#B882FE" : "#DEE0E7",
+                  background: i < stepIdx
+                    ? "#B882FE"
+                    : i === stepIdx
+                    ? "#B882FE"
+                    : "#DEE0E7",
+                  opacity: i < stepIdx ? 0.5 : 1,
                   transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
                 }}
               />
@@ -373,14 +346,10 @@ function TourOverlay({
                 cursor: "pointer",
                 transition: "background 0.15s ease",
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#D3B3FF";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "#B882FE";
-              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#D3B3FF"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "#B882FE"; }}
             >
-              {isLast ? "Finish Tour ✓" : "Next →"}
+              {isLast ? "Done" : "Next →"}
             </button>
             <button
               onClick={onSkip}
