@@ -55,12 +55,13 @@ export function DashboardPage({ initialIssueKey = "" }: { initialIssueKey?: stri
   const sparkData = useMemo(() => buildSparkData(runs), [runs]);
   const donutSegments = [
     { label: "Completed", value: completedCount, color: "var(--green)" },
-    { label: "Running",   value: runningCount,   color: "var(--blue)" },
-    { label: "Failed",    value: failedCount,    color: "var(--rose)" },
+    { label: "Running", value: runningCount, color: "var(--blue)" },
+    { label: "Failed", value: failedCount, color: "var(--rose)" },
   ];
 
   const refresh = useCallback(async () => {
     setBusy("refresh");
+
     try {
       const [runRes, regRes] = await Promise.all([
         api.get<{ runs: Run[] }>("/runs?limit=50"),
@@ -71,16 +72,23 @@ export function DashboardPage({ initialIssueKey = "" }: { initialIssueKey?: stri
 
       const warningResps = await Promise.all(
         runRes.runs.slice(0, 5).map((r) =>
-          api.get<{ warnings: Warning[] }>(`/runs/${r.run_id}/warnings`)
-            .catch(() => ({ warnings: [] as Warning[] }))
+          api
+            .get<{ warnings: Warning[] }>(`/runs/${r.run_id}/warnings`)
+            .catch((err) => {
+              console.warn(`Failed to fetch warnings for run ${r.run_id}:`, err);
+              return { warnings: [] as Warning[] };
+            })
         )
       );
       setWarnings(warningResps.flatMap((r) => r.warnings));
-    } catch {
-      // API error handled
+
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load dashboard data";
+      showToast(message, "error");
+      console.error("[DashboardPage] refresh failed:", err);
     } finally {
       setBusy(null);
-      setLoading(false);
+      setLoading(true);
     }
   }, [api]);
 
@@ -118,95 +126,105 @@ export function DashboardPage({ initialIssueKey = "" }: { initialIssueKey?: stri
       }
     >
       {/* ── KPI Metrics ── */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
-        {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonMetric key={i} />)
-        ) : (
-          <>
-            <div className="animate-fade-in" style={{ "--stagger": "0ms", flex: "1 1 200px" } as React.CSSProperties}>
-              <Metric label="Total" subtitle="Runs" value={runs.length}
-                icon={<Database size={18} style={{ color: "#172A54" }} />} iconBg="#BFD3FE"
-                delta={`Last ${runs.length} recorded`} deltaColor="var(--blue-text)" />
-            </div>
-            <div className="animate-fade-in" style={{ "--stagger": "50ms", flex: "1 1 200px" } as React.CSSProperties}>
-              <Metric label="Drift" subtitle="Warnings" value={driftCount}
-                icon={<AlertTriangle size={18} style={{ color: "#92400e" }} />} iconBg="var(--amber-dim)"
-                delta={driftCount > 0 ? "Schema violations found" : "All contracts OK"}
-                deltaColor={driftCount > 0 ? "var(--amber-text)" : "var(--green-text)"} />
-            </div>
-            <div className="animate-fade-in" style={{ "--stagger": "100ms", flex: "1 1 200px" } as React.CSSProperties}>
-              <Metric label="Regression" subtitle="Tests" value={regressions.length}
-                icon={<BadgeCheck size={18} style={{ color: "var(--purple-text)" }} />} iconBg="var(--purple-dim)"
-                delta={`${passCount} passing · ${failCount} failing`}
-                deltaColor={failCount > 0 ? "var(--rose-text)" : "var(--green-text)"} />
-            </div>
-            <div className="animate-fade-in" style={{ "--stagger": "150ms", flex: "1 1 200px" } as React.CSSProperties}>
-              <Metric label="Pass" subtitle="Rate"
-                value={passRate !== null ? `${passRate}%` : "—"} animate={false}
-                icon={<ShieldCheck size={18} style={{ color: "var(--green-text)" }} />} iconBg="var(--green-dim)"
-                delta={passRate !== null && passRate >= 80 ? "Above threshold" : "Needs attention"}
-                deltaColor={passRate !== null && passRate >= 80 ? "var(--green-text)" : "var(--amber-text)"} />
-            </div>
-          </>
-        )}
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "16px",
+  }}
+>        {loading ? (
+        Array.from({ length: 4 }).map((_, i) => <SkeletonMetric key={i} />)
+      ) : (
+        <>
+          <div className="animate-fade-in" style={{ "--stagger": "0ms", flex: "1 1 200px" } as React.CSSProperties}>
+            <Metric label="Total" subtitle="Runs" value={runs.length}
+              icon={<Database size={18} style={{ color: "#172A54" }} />} iconBg="#BFD3FE"
+              delta={`Last ${runs.length} recorded`} deltaColor="var(--blue-text)" />
+          </div>
+          <div className="animate-fade-in" style={{ "--stagger": "50ms", flex: "1 1 200px" } as React.CSSProperties}>
+            <Metric label="Drift" subtitle="Warnings" value={driftCount}
+              icon={<AlertTriangle size={18} style={{ color: "#92400e" }} />} iconBg="var(--amber-dim)"
+              delta={driftCount > 0 ? "Schema violations found" : "All contracts OK"}
+              deltaColor={driftCount > 0 ? "var(--amber-text)" : "var(--green-text)"} />
+          </div>
+          <div className="animate-fade-in" style={{ "--stagger": "100ms", flex: "1 1 200px" } as React.CSSProperties}>
+            <Metric label="Regression" subtitle="Tests" value={regressions.length}
+              icon={<BadgeCheck size={18} style={{ color: "var(--purple-text)" }} />} iconBg="var(--purple-dim)"
+              delta={`${passCount} passing · ${failCount} failing`}
+              deltaColor={failCount > 0 ? "var(--rose-text)" : "var(--green-text)"} />
+          </div>
+          <div className="animate-fade-in" style={{ "--stagger": "150ms", flex: "1 1 200px" } as React.CSSProperties}>
+            <Metric label="Pass" subtitle="Rate"
+              value={passRate !== null ? `${passRate}%` : "—"} animate={false}
+              icon={<ShieldCheck size={18} style={{ color: "var(--green-text)" }} />} iconBg="var(--green-dim)"
+              delta={passRate !== null && passRate >= 80 ? "Above threshold" : "Needs attention"}
+              deltaColor={passRate !== null && passRate >= 80 ? "var(--green-text)" : "var(--amber-text)"} />
+          </div>
+        </>
+      )}
       </div>
 
       {/* ── Charts row ── */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
-        {loading ? (
-          <>
-            <SkeletonMetric />
-            <SkeletonMetric />
-          </>
-        ) : (
-          <>
-            {/* 7-day activity sparkline */}
-            <div className="premium-card animate-fade-in" style={{ flex: "1 1 400px", background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "16px 20px", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", "--stagger": "100ms" } as React.CSSProperties}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
-                <div>
-                  <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Last 7 days</div>
-                  <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>Run Activity</h2>
-                </div>
-                <div style={{ display: "flex", gap: "12px", fontSize: "11px", color: "var(--text-muted)", alignItems: "center" }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "8px", height: "8px", borderRadius: "2px", background: "var(--blue)", display: "inline-block" }} />Runs</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "8px", height: "8px", borderRadius: "2px", background: "var(--amber)", display: "inline-block" }} />Drift</span>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "flex-end", gap: "16px", justifyContent: "space-between", paddingBottom: "4px", flex: 1 }}>
-                <div style={{ flex: 1, minWidth: 0, height: "100%", minHeight: "100px" }}>
-                  <SparkBar data={sparkData} height="100%" color="var(--blue)" driftColor="var(--amber)" />
-                </div>
-              </div>
-            </div>
-
-            {/* Status donut */}
-            <div className="premium-card animate-fade-in" style={{ flex: "1 1 280px", background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "16px 20px", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "12px", "--stagger": "150ms" } as React.CSSProperties}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: "16px",
+        }}
+      >        {loading ? (
+        <>
+          <SkeletonMetric />
+          <SkeletonMetric />
+        </>
+      ) : (
+        <>
+          {/* 7-day activity sparkline */}
+          <div className="premium-card animate-fade-in" style={{ flex: "1 1 400px", background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "16px 20px", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", "--stagger": "100ms" } as React.CSSProperties}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
               <div>
-                <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Breakdown</div>
-                <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>Run Status</h2>
+                <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Last 7 days</div>
+                <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>Run Activity</h2>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: isMobile ? "wrap" : "nowrap" }}>
-                <div style={{ position: "relative", flexShrink: 0 }}>
-                  <DonutChart segments={donutSegments} size={88} thickness={13} />
-                  {/* Center label */}
-                  <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-secondary)" }}>{runs.length}</span>
-                    <span style={{ fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>total</span>
-                  </div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px", flex: 1, minWidth: isMobile ? "100%" : 0 }}>
-                  {donutSegments.map((seg) => (
-                    <div key={seg.label} style={{ display: "flex", alignItems: "center", gap: "7px", fontSize: "12px" }}>
-                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: seg.color, flexShrink: 0 }} />
-                      <span style={{ color: "var(--text-muted)" }}>{seg.label}</span>
-                      <span style={{ fontWeight: 700, color: "var(--text-secondary)", marginLeft: "auto", paddingLeft: "12px" }}>{seg.value}</span>
-                    </div>
-                  ))}
-                </div>
+              <div style={{ display: "flex", gap: "12px", fontSize: "11px", color: "var(--text-muted)", alignItems: "center" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "8px", height: "8px", borderRadius: "2px", background: "var(--blue)", display: "inline-block" }} />Runs</span>
+                <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><span style={{ width: "8px", height: "8px", borderRadius: "2px", background: "var(--amber)", display: "inline-block" }} />Drift</span>
               </div>
             </div>
-          </>
-        )}
+            <div style={{ display: "flex", alignItems: "flex-end", gap: "16px", justifyContent: "space-between", paddingBottom: "4px", flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0, height: "100%", minHeight: "100px" }}>
+                <SparkBar data={sparkData} height="100%" color="var(--blue)" driftColor="var(--amber)" />
+              </div>
+            </div>
+          </div>
+
+          {/* Status donut */}
+          <div className="premium-card animate-fade-in" style={{ flex: "1 1 280px", background: "var(--bg-surface)", border: "1px solid var(--border-strong)", borderRadius: "var(--radius-lg)", padding: "16px 20px", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "12px", "--stagger": "150ms" } as React.CSSProperties}>
+            <div>
+              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "2px" }}>Breakdown</div>
+              <h2 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-secondary)", margin: 0 }}>Run Status</h2>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: isMobile ? "wrap" : "nowrap" }}>
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <DonutChart segments={donutSegments} size={88} thickness={13} />
+                {/* Center label */}
+                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: "18px", fontWeight: 700, color: "var(--text-secondary)" }}>{runs.length}</span>
+                  <span style={{ fontSize: "9px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>total</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", flex: 1, minWidth: isMobile ? "100%" : 0 }}>
+                {donutSegments.map((seg) => (
+                  <div key={seg.label} style={{ display: "flex", alignItems: "center", gap: "7px", fontSize: "12px" }}>
+                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: seg.color, flexShrink: 0 }} />
+                    <span style={{ color: "var(--text-muted)" }}>{seg.label}</span>
+                    <span style={{ fontWeight: 700, color: "var(--text-secondary)", marginLeft: "auto", paddingLeft: "12px" }}>{seg.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
       </div>
 
       {/* ── Main 2-col layout ── */}
