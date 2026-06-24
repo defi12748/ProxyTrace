@@ -88,7 +88,7 @@ export function DashboardPage({ initialIssueKey = "" }: { initialIssueKey?: stri
       console.error("[DashboardPage] refresh failed:", err);
     } finally {
       setBusy(null);
-      setLoading(true);
+      setLoading(false);
     }
   }, [api]);
 
