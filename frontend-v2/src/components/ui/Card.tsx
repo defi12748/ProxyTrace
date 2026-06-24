@@ -1,15 +1,17 @@
 import type { ReactNode, CSSProperties } from "react";
 
 interface CardProps {
+  id?: string;
   children: ReactNode;
   style?: CSSProperties;
   className?: string;
 }
 
 /* Matches dotrack StatCard: bg-[#f5f6f8] rounded-lg border border-[#b3b4c6] */
-export function Card({ children, style, className = "" }: CardProps) {
+export function Card({ id, children, style, className = "" }: CardProps) {
   return (
     <div
+      id={id}
       className={`premium-card ${className}`}
       style={{
         background: "var(--bg-surface)",

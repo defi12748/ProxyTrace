@@ -27,7 +27,7 @@ export function Badge({ children, color = "gray", dot = false }: BadgeProps) {
         alignItems: "center",
         gap: "4px",
         padding: "3px 10px",
-        borderRadius: "var(--radius-full)",
+        borderRadius: "var(--radius-lg)",
         fontSize: "12px",
         fontWeight: 500,
         background: bg,

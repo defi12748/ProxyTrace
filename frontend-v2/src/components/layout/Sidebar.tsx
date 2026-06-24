@@ -6,8 +6,6 @@ import {
   ShieldAlert,
   TestTube2,
   ChevronLeft,
-  ChevronRight,
-  Activity,
   X,
 } from "lucide-react";
 
@@ -28,7 +26,6 @@ export function Sidebar({ isMobile = false, mobileOpen = false, onClose }: Sideb
   const [collapsed, setCollapsed] = useState(false);
   const [hovering, setHovering] = useState(false);
 
-  // Expand on hover when collapsed (dotrack behaviour)
   const isCollapsed = !isMobile && collapsed && !hovering;
 
   const sidebar = (
@@ -71,107 +68,107 @@ export function Sidebar({ isMobile = false, mobileOpen = false, onClose }: Sideb
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          justifyContent: isCollapsed ? "center" : "space-between",
           padding: "12px",
           borderBottom: "1px solid var(--border)",
           height: "50px",
           flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden" }}>
-          {/* Icon mark */}
-          <div
+        {/* Logo mark + title */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            overflow: "hidden",
+            cursor: isCollapsed ? "pointer" : "default",
+            flexShrink: 0,
+          }}
+          onClick={() => {
+            if (!isMobile && isCollapsed) {
+              setCollapsed(false);
+              setHovering(false);
+            }
+          }}
+          title={isCollapsed ? "Expand sidebar" : undefined}
+        >
+          {/* Logo image — always visible */}
+          <img
+             onClick={() => setCollapsed(!collapsed)}
+            src="./logo.png"
+            alt="ProxyTrace logo"
             style={{
-              width: "32px",
-              height: "32px",
+              width: "42px",
+              height: "42px",
               borderRadius: "var(--radius-md)",
-              background: "var(--purple)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              objectFit: "contain",
               flexShrink: 0,
             }}
-          >
-            <Activity size={16} style={{ color: "white" }} />
-          </div>
-          {/* Full name — hidden when collapsed */}
+          />
+
+          {/* Title image — hidden when collapsed */}
           {!isCollapsed && (
-            <span
+            <img
+              src="./title.png"
+              alt="ProxyTrace"
               style={{
-                fontSize: "14px",
-                fontWeight: 700,
-                color: "var(--text-primary)",
-                whiteSpace: "nowrap",
+                height: "22px",
+                objectFit: "contain",
                 animation: "slideIn 0.2s ease",
-              }}
-            >
-              ProxyTrace
-            </span>
+                whiteSpace: "nowrap",
+              } as React.CSSProperties}
+            />
           )}
         </div>
 
-        {isMobile ? (
-          <button
-            onClick={onClose}
-            aria-label="Close navigation menu"
-            style={{
-              width: "30px",
-              height: "32px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "var(--radius-md)",
-              border: "none",
-              background: "transparent",
-              color: "var(--text-secondary)",
-              cursor: "pointer",
-            }}
-          >
-            <X size={16} />
-          </button>
-        ) : !isCollapsed ? (
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            style={{
-              width: "30px",
-              height: "32px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "var(--radius-md)",
-              border: "none",
-              background: "var(--bg-surface)",
-              color: "var(--text-secondary)",
-              cursor: "pointer",
-              transition: "background var(--transition)",
-              flexShrink: 0,
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-raised)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "var(--bg-surface)"; }}
-          >
-            <ChevronLeft size={16} />
-          </button>
-        ) : (
-          <button
-            onClick={() => setCollapsed(false)}
-            style={{
-              width: "30px",
-              height: "32px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "var(--radius-md)",
-              border: "none",
-              background: "transparent",
-              color: "var(--text-secondary)",
-              cursor: "pointer",
-            }}
-          >
-            <ChevronRight size={16} />
-          </button>
+        {/* Collapse / close button — only shown when expanded */}
+        {!isCollapsed && (
+          isMobile ? (
+            <button
+              onClick={onClose}
+              aria-label="Close navigation menu"
+              style={{
+                width: "30px",
+                height: "32px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "var(--radius-md)",
+                border: "none",
+                background: "transparent",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+              }}
+            >
+              <X size={16} />
+            </button>
+          ) : (
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              aria-label="Collapse sidebar"
+              style={{
+                width: "30px",
+                height: "32px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "var(--radius-md)",
+                border: "none",
+                background: "var(--bg-surface)",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                transition: "background var(--transition)",
+                flexShrink: 0,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-raised)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "var(--bg-surface)"; }}
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )
         )}
       </div>
-
       {/* ── Main navigation ── */}
       <nav
         style={{

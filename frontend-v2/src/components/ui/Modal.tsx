@@ -62,7 +62,7 @@ export function Modal({
         style={{
           background: "var(--bg-surface)",
           border: "1px solid var(--border-strong)",
-          borderRadius: "var(--radius-xl)",
+          borderRadius: "var(--radius-lg)",
           boxShadow: "var(--shadow-lg), 0 0 0 1px rgba(139,92,246,0.08)",
           width: "100%",
           maxWidth: width,

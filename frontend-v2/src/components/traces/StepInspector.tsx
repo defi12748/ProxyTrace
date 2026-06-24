@@ -44,7 +44,7 @@ export function StepInspector({ step, previousStep }: StepInspectorProps) {
               color: isLlm ? "var(--purple-text)" : "var(--blue-text)",
             }}
           >
-            Step {step.step_index} · {step.step_type}
+            Step {step.step_index} 
           </span>
           <Badge color={statusColor(step.step_type)}>{step.step_type}</Badge>
         </div>

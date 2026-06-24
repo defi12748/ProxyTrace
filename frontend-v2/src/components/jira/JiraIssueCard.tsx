@@ -100,7 +100,7 @@ export function JiraIssueCard({ issueKey, onFetch }: JiraIssueCardProps) {
               color: "var(--purple-text)",
               background: "var(--purple-dim)",
               padding: "2px 8px",
-              borderRadius: "var(--radius-full)",
+              borderRadius: "var(--radius-lg)",
               fontFamily: "var(--font-mono)",
             }}
           >
