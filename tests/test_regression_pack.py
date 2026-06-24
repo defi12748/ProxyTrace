@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from proxytrace.regression_pack.pack_store import build_assertions_from_replay
+from proxytrace.regression_pack.pack_store import RegressionPromotionError
 from proxytrace.regression_pack.runner import RegressionRunner
 
 
@@ -18,6 +19,7 @@ def exploratory_replay():
             "value": {"response": {"project_key": "PLATFORM"}},
         },
         verdict={
+            "execution_status": "completed",
             "patched_steps": [
                 {"step_index": 1, "step_type": "llm", "payload": {}},
                 {
@@ -81,6 +83,18 @@ def test_build_assertions_from_exploratory_replay() -> None:
     assert assertions["expected_final_board"] == "PLATFORM"
     assert assertions["ai_semantic_assertions"]["source"] == "ai_semantic_outcome"
     assert assertions["frozen_trace"][2]["payload"]["response"]["board"] == "PLATFORM"
+
+
+def test_failed_exploratory_replay_cannot_be_promoted() -> None:
+    replay = exploratory_replay()
+    replay.verdict["execution_status"] = "failed"
+
+    try:
+        build_assertions_from_replay(replay)
+    except RegressionPromotionError as exc:
+        assert "successfully completed" in str(exc)
+    else:
+        raise AssertionError("failed replay was promoted")
 
 
 def test_regression_runner_checks_frozen_assertions() -> None:

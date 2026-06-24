@@ -36,6 +36,8 @@ export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: strin
 
   const [patchBoard, setPatchBoard] = useState("PLATFORM");
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | null>(null);
+  const [selectedGraphStep, setSelectedGraphStep] = useState<Step | null>(null);
   const [showGraph, setShowGraph] = useState(true);
   const [timelineMode, setTimelineMode] = useState<"original" | "simulated">("original");
 
@@ -45,9 +47,19 @@ export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: strin
   );
 
   const patchedSteps = useMemo(() => {
+    if (exploratoryReplay?.verdict.execution_status !== "completed") return [];
     const steps = exploratoryReplay?.verdict.patched_steps;
     return Array.isArray(steps) ? (steps as JsonObject[]) : [];
   }, [exploratoryReplay]);
+
+  const selectedGraphPreviousStep = useMemo(() => {
+    if (!detail || !selectedGraphStep) return undefined;
+    const collection = selectedGraphNodeId?.startsWith("p-")
+      ? (patchedSteps as Step[])
+      : detail.steps;
+    const index = collection.findIndex((step) => step.step_index === selectedGraphStep.step_index);
+    return index > 0 ? collection[index - 1] : undefined;
+  }, [detail, patchedSteps, selectedGraphNodeId, selectedGraphStep]);
 
   const driftWarnings = useMemo(
     () => warnings.filter((warning) => warning.warning_type.includes("drift")),
@@ -115,6 +127,9 @@ export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: strin
           ]);
           setDetail(runDetail);
           setWarnings(warningResponse.warnings);
+          setSelectedStepId(runDetail.steps[0]?.step_id ?? null);
+          setSelectedGraphStep(runDetail.steps[0] ?? null);
+          setSelectedGraphNodeId(runDetail.steps[0] ? `o-${runDetail.steps[0].step_index}` : null);
         }
       } catch (err) {
         console.error("Failed to load trace", err);
@@ -140,6 +155,8 @@ export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: strin
       setDetail(runDetail);
       setWarnings(warningResponse.warnings);
       setSelectedStepId(runDetail.steps[0]?.step_id ?? null);
+      setSelectedGraphStep(runDetail.steps[0] ?? null);
+      setSelectedGraphNodeId(runDetail.steps[0] ? `o-${runDetail.steps[0].step_index}` : null);
     } catch (err) {
       console.error(err);
     }
@@ -164,6 +181,7 @@ export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: strin
     if (!run || patchStep === null) return;
     setBusy("exploratory");
     setStrictReplay(null);
+    setExploratoryReplay(null);
     setPromotedId(null);
     try {
       const r = await api.post<ExploratoryReplay>(`/runs/${run.run_id}/replay/exploratory`, {
@@ -181,7 +199,15 @@ export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: strin
         },
       });
       setExploratoryReplay(r);
-      showToast("Route simulation complete", "success");
+      if (r.verdict.execution_status === "failed") {
+        const executionError = r.verdict.execution_error;
+        const message = executionError && typeof executionError === "object" && !Array.isArray(executionError)
+          ? executionError.message
+          : null;
+        showToast(String(message ?? "Simulation could not complete"), "error");
+      } else {
+        showToast("Route simulation complete", "success");
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Simulation failed", "error");
     } finally {
@@ -190,7 +216,7 @@ export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: strin
   }
 
   async function promote() {
-    if (!exploratoryReplay) return;
+    if (!exploratoryReplay || exploratoryReplay.verdict.execution_status !== "completed") return;
     setBusy("promote");
     try {
       await api.post("/regression/promote", { replay_id: exploratoryReplay.replay_id });
@@ -418,18 +444,43 @@ export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: strin
           </div>
         </CardHeader>
         {showGraph && (
-          <div style={{ height: "360px", borderTop: "1px solid var(--border)", position: "relative" }}>
-            <WorkflowGraph
-              originalSteps={detail.steps}
-              patchedSteps={patchedSteps}
-              patchStep={patchStep}
-              height="100%"
-              compact
-              onNodeClick={(stepId) => {
-                setSelectedStepId(stepId);
-                document.getElementById("execution-timeline")?.scrollIntoView({ behavior: "smooth" });
-              }}
-            />
+          <div className="forge-workflow-layout">
+            <div style={{ height: "420px", minWidth: 0, borderTop: "1px solid var(--border)", position: "relative" }}>
+              <WorkflowGraph
+                originalSteps={detail.steps}
+                patchedSteps={patchedSteps}
+                patchStep={patchStep}
+                height="100%"
+                compact
+                selectedNodeId={selectedGraphNodeId}
+                onNodeClick={(selection) => {
+                  const step = selection.step as Step;
+                  setSelectedGraphNodeId(selection.nodeId);
+                  setSelectedGraphStep(step);
+                  setSelectedStepId(step.step_id);
+                }}
+              />
+            </div>
+            <div style={{ minWidth: 0, maxHeight: "420px", overflowY: "auto", borderTop: "1px solid var(--border)", borderLeft: "1px solid var(--border)", padding: "12px", background: "var(--bg-surface)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                <div>
+                  <div style={{ fontSize: "10px", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                    Selected node
+                  </div>
+                  <div style={{ marginTop: "2px", fontSize: "13px", fontWeight: 700 }}>
+                    {selectedGraphStep ? `Step ${selectedGraphStep.step_index}` : "Choose a node"}
+                  </div>
+                </div>
+                {selectedGraphNodeId?.startsWith("p-") && <Badge color="purple">simulated</Badge>}
+              </div>
+              {selectedGraphStep ? (
+                <StepInspector step={selectedGraphStep} previousStep={selectedGraphPreviousStep} />
+              ) : (
+                <div style={{ padding: "20px 4px", fontSize: "12px", lineHeight: 1.5, color: "var(--text-muted)" }}>
+                  Click any workflow node to inspect its prompt, tool payload, response, and recorded state here.
+                </div>
+              )}
+            </div>
           </div>
         )}
       </Card>
@@ -555,7 +606,16 @@ export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: strin
               return (
                 <div key={step.step_id} style={{ borderBottom: "1px solid var(--border)" }}>
                   <button
-                    onClick={() => setSelectedStepId(isSelected ? null : step.step_id)}
+                    onClick={() => {
+                      const nextSelected = isSelected ? null : step;
+                      setSelectedStepId(nextSelected?.step_id ?? null);
+                      setSelectedGraphStep(nextSelected);
+                      setSelectedGraphNodeId(
+                        nextSelected
+                          ? `${timelineMode === "simulated" ? "p" : "o"}-${nextSelected.step_index}`
+                          : null
+                      );
+                    }}
                     style={{
                       width: "100%",
                       display: "flex",
@@ -644,7 +704,7 @@ export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: strin
             ))}
           </div>
           <Button
-            variant="ghost"
+            variant="primary"
             icon={<Brain size={14} />}
             loading={busy === "exploratory"}
             onClick={() => void runExploratory()}
@@ -657,15 +717,17 @@ export function JiraPanelApp({ initialIssueKey = "" }: { initialIssueKey?: strin
           {exploratoryReplay && (
             <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "8px" }}>
               <VerdictPanel replay={exploratoryReplay} />
-              
-              {!promotedId ? (
-                <Button variant="success" icon={<BadgeCheck size={14} />} loading={busy === "promote"} onClick={() => void promote()} style={{ width: "100%", justifyContent: "center" }}>
-                  Promote to Regression Test
-                </Button>
-              ) : (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "8px", background: "var(--emerald-dim)", borderRadius: "var(--radius-md)", color: "var(--emerald)", fontSize: "12px", fontWeight: 600 }}>
-                  <BadgeCheck size={14} /> Saved as regression test
-                </div>
+
+              {exploratoryReplay.verdict.execution_status === "completed" && (
+                !promotedId ? (
+                  <Button variant="success" icon={<BadgeCheck size={14} />} loading={busy === "promote"} onClick={() => void promote()} style={{ width: "100%", justifyContent: "center" }}>
+                    Promote to Regression Test
+                  </Button>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "8px", background: "var(--emerald-dim)", borderRadius: "var(--radius-md)", color: "var(--emerald)", fontSize: "12px", fontWeight: 600 }}>
+                    <BadgeCheck size={14} /> Saved as regression test
+                  </div>
+                )
               )}
             </div>
           )}

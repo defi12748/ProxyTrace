@@ -343,10 +343,10 @@ export function ReplayStudioPage() {
                     originalSteps={detail.steps}
                     patchedSteps={patchedSteps}
                     patchStep={patchStep}
-                    onNodeClick={(stepId) => {
+                    onNodeClick={(selection) => {
                       setViewMode("list");
                       setTimeout(() => {
-                        const idx = detail.steps.find(s => s.step_id === stepId)?.step_index;
+                        const idx = Number(selection.step.step_index ?? 0);
                         if (idx) {
                           document.getElementById(`step-row-${idx}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
                         }

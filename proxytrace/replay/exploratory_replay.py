@@ -103,16 +103,30 @@ class ExploratoryReplayEngine:
             "strategy": "current_agent_workflow_reexecution",
             "affected_steps": affected_steps,
         }
-        evaluator_verdict = await self.evaluator.evaluate(
-            patch_step=patch_step,
-            patch_payload=patch_payload,
-            diff=diff,
-            trace_context=self._trace_context(
-                run=run,
-                original_steps=steps,
-                patched_steps=patched_steps,
-            ),
-        )
+        if execution_error is None:
+            evaluator_verdict = await self.evaluator.evaluate(
+                patch_step=patch_step,
+                patch_payload=patch_payload,
+                diff=diff,
+                trace_context=self._trace_context(
+                    run=run,
+                    original_steps=steps,
+                    patched_steps=patched_steps,
+                ),
+            )
+        else:
+            evaluator_verdict = {
+                "analysis_available": False,
+                "human_review_required": True,
+                "source": "replay_execution_failed",
+                "failure_reason": execution_error["message"],
+                "semantic_judgment": {
+                    "assertions": {},
+                    "human_review_required": True,
+                    "source": "replay_execution_failed",
+                },
+                "ai_load_bearing": False,
+            }
 
         live_model_call_count = (
             runtime.live_model_call_count if runtime is not None else 0

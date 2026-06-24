@@ -1,6 +1,7 @@
 import { ShieldCheck, Percent, Zap, Lock } from "lucide-react";
 import { Badge } from "../ui/Badge";
 import { confidenceLabel } from "../../lib/utils";
+import { asRecord } from "../../api/client";
 import type { StrictReplay } from "../../api/types";
 
 interface StrictReplayCardProps {
@@ -9,10 +10,38 @@ interface StrictReplayCardProps {
 
 export function StrictReplayCard({ replay }: StrictReplayCardProps) {
   const v = replay.verdict;
+  const executionError = asRecord(v.execution_error);
   const rate =
     typeof v.determinism_rate === "number" ? v.determinism_rate : null;
   const rateLabel = rate !== null ? confidenceLabel(rate) : "—";
   const isClean = rate === 1;
+
+  if (v.execution_status === "failed") {
+    return (
+      <div
+        style={{
+          background: "var(--rose-dim)",
+          border: "1px solid rgba(248,113,113,0.35)",
+          borderRadius: "var(--radius-lg)",
+          padding: "14px 16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
+          <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--rose-text)" }}>Replay failed</span>
+          <Badge color="rose">Needs a fresh trace</Badge>
+        </div>
+        <span style={{ fontSize: "12px", lineHeight: 1.5, color: "var(--text-secondary)", overflowWrap: "anywhere" }}>
+          {String(executionError.message ?? "The current workflow could not consume this recording.")}
+        </span>
+        <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+          Provider isolation still held: {String(v.live_call_count ?? 0)} live calls.
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div

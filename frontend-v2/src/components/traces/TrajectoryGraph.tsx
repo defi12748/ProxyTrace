@@ -1,8 +1,13 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   Background,
   Controls,
   ReactFlow,
+  type ReactFlowInstance,
+  useEdgesState,
+  useNodesState,
 } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 import { buildGraph, stepName, stepSubtitle } from "../../lib/utils";
 import type { JsonObject, Step } from "../../api/types";
 
@@ -10,9 +15,15 @@ interface TrajectoryGraphProps {
   steps: Step[];
   patchedSteps: JsonObject[];
   patchStep: number | null;
-  selectedStepId?: string | null;
-  onSelectNode?: (stepId: string) => void;
+  selectedNodeId?: string | null;
+  onSelectNode?: (selection: TrajectoryGraphSelection) => void;
 }
+
+export type TrajectoryGraphSelection = {
+  nodeId: string;
+  branch: "original" | "patched";
+  step: Step | JsonObject;
+};
 
 function NodeLabel({
   step,
@@ -83,21 +94,37 @@ export function TrajectoryGraph({
   steps,
   patchedSteps,
   patchStep,
-  selectedStepId,
+  selectedNodeId,
   onSelectNode,
 }: TrajectoryGraphProps) {
-  const { nodes, edges } = buildGraph(
-    steps,
-    patchedSteps,
-    patchStep,
-    (step, stepIndex, isUnverified) => (
-      <NodeLabel step={step} stepIndex={stepIndex} isUnverified={isUnverified} />
-    )
+  const graph = useMemo(
+    () => buildGraph(
+      steps,
+      patchedSteps,
+      patchStep,
+      (step, stepIndex, isUnverified) => (
+        <NodeLabel step={step} stepIndex={stepIndex} isUnverified={isUnverified} />
+      )
+    ),
+    [patchStep, patchedSteps, steps]
   );
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges);
+  const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
+
+  useEffect(() => {
+    setNodes(graph.nodes);
+    setEdges(graph.edges);
+    const timer = window.setTimeout(() => {
+      void flow?.fitView({ padding: 0.16, duration: 250 });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [flow, graph, setEdges, setNodes]);
 
   const activeNodes = nodes.map(node => ({
     ...node,
-    className: node.className + (node.data.stepId === selectedStepId ? " selected" : "")
+    selected: node.id === selectedNodeId,
   }));
 
   return (
@@ -149,15 +176,25 @@ export function TrajectoryGraph({
       <ReactFlow
         nodes={activeNodes}
         edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onInit={setFlow}
         fitView
+        fitViewOptions={{ padding: 0.16 }}
         minZoom={0.35}
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
-        nodesDraggable={false}
+        nodesDraggable
         nodesConnectable={false}
+        elementsSelectable
+        panOnDrag
+        zoomOnScroll
+        zoomOnPinch
         onNodeClick={(_, node) => {
-          if (onSelectNode && typeof node.data.stepId === "string") {
-            onSelectNode(node.data.stepId);
+          const step = node.data.step as Step | JsonObject | undefined;
+          const branch = node.data.branch;
+          if (onSelectNode && step && (branch === "original" || branch === "patched")) {
+            onSelectNode({ nodeId: node.id, branch, step });
           }
         }}
         style={{
@@ -171,7 +208,7 @@ export function TrajectoryGraph({
           color="rgba(255,255,255,0.03)"
         />
         <Controls
-          showInteractive={false}
+          showInteractive
           position="top-right"
           orientation="horizontal"
           aria-label="Trajectory graph controls"
@@ -213,7 +250,10 @@ export function TrajectoryGraph({
           cursor: pointer;
         }
         .pt-node {
-          cursor: pointer;
+          cursor: grab;
+        }
+        .react-flow__node:active .pt-node {
+          cursor: grabbing;
         }
         .pt-node:hover {
           border-color: rgba(99,179,237,0.4);

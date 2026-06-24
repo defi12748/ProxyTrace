@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Brain, AlertOctagon, TrendingUp, User, Zap, GitBranch, MessageSquare } from "lucide-react";
 import { Badge } from "../ui/Badge";
+import { StructuredJson } from "../ui/StructuredJson";
 import { asRecord } from "../../api/client";
 import { confidenceLabel } from "../../lib/utils";
 import type { ExploratoryReplay } from "../../api/types";
@@ -17,6 +18,8 @@ function riskColor(level: unknown): "rose" | "amber" | "green" | "gray" {
 }
 
 export function VerdictPanel({ replay }: VerdictPanelProps) {
+  const executionStatus = replay.verdict.execution_status;
+  const executionError = asRecord(replay.verdict.execution_error);
   const evaluation = asRecord(replay.verdict.evaluation);
   const semanticJudgment = asRecord(evaluation.semantic_judgment);
   const riskLevel = evaluation.risk_level as string | undefined;
@@ -24,6 +27,35 @@ export function VerdictPanel({ replay }: VerdictPanelProps) {
     typeof evaluation.judge_confidence === "number"
       ? evaluation.judge_confidence
       : null;
+
+  if (executionStatus === "failed") {
+    return (
+      <div
+        style={{
+          padding: "14px 16px",
+          background: "var(--rose-dim)",
+          border: "1px solid rgba(248,113,113,0.35)",
+          borderRadius: "var(--radius-lg)",
+          display: "flex",
+          gap: "10px",
+          alignItems: "flex-start",
+        }}
+      >
+        <AlertOctagon size={17} style={{ color: "var(--rose)", flexShrink: 0, marginTop: "2px" }} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--rose-text)" }}>
+            Simulation could not complete
+          </div>
+          <div style={{ marginTop: "4px", fontSize: "12px", lineHeight: 1.5, color: "var(--text-secondary)", overflowWrap: "anywhere" }}>
+            {String(executionError.message ?? evaluation.failure_reason ?? "The current workflow rejected the recorded data.")}
+          </div>
+          <div style={{ marginTop: "6px", fontSize: "11px", color: "var(--text-muted)" }}>
+            No AI verdict or regression assertion was generated from this failed branch.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -142,28 +174,66 @@ export function VerdictPanel({ replay }: VerdictPanelProps) {
               Semantic Judgment
             </span>
           </div>
-          {Object.entries(semanticJudgment).map(([k, v]) => (
-            <div
-              key={k}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "110px 1fr",
-                gap: "6px",
-                padding: "4px 0",
-                borderBottom: "1px solid rgba(167,139,250,0.1)",
-                fontSize: "12px",
-              }}
-            >
-              <span style={{ color: "var(--text-muted)", fontWeight: 600, textTransform: "capitalize" }}>
-                {k.replace(/_/g, " ")}
-              </span>
-              <span style={{ color: "var(--text-secondary)", overflowWrap: "anywhere" }}>
-                {String(v)}
-              </span>
-            </div>
-          ))}
+          {semanticJudgment.expected_final_state !== undefined && (
+            <SemanticRow label="Expected final state">
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px" }}>
+                <StructuredJson data={semanticJudgment.expected_final_state} initiallyExpanded />
+              </div>
+            </SemanticRow>
+          )}
+          {semanticJudgment.expected_final_board !== undefined && (
+            <SemanticRow label="Expected board">
+              {semanticJudgment.expected_final_board === null
+                ? "No board required"
+                : String(semanticJudgment.expected_final_board)}
+            </SemanticRow>
+          )}
+          {semanticJudgment.satisfies_expected_outcome !== undefined && (
+            <SemanticRow label="Outcome">
+              <Badge color={semanticJudgment.satisfies_expected_outcome ? "green" : "rose"}>
+                {semanticJudgment.satisfies_expected_outcome ? "Satisfied" : "Not satisfied"}
+              </Badge>
+            </SemanticRow>
+          )}
+          {Array.isArray(semanticJudgment.evidence) && semanticJudgment.evidence.length > 0 && (
+            <SemanticRow label="Evidence">
+              <ul style={{ margin: 0, paddingLeft: "16px", display: "grid", gap: "5px" }}>
+                {semanticJudgment.evidence.map((item, index) => (
+                  <li key={`${index}-${String(item)}`} style={{ lineHeight: 1.45 }}>
+                    {String(item)}
+                  </li>
+                ))}
+              </ul>
+            </SemanticRow>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function SemanticRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "110px minmax(0, 1fr)",
+        gap: "8px",
+        padding: "7px 0",
+        borderBottom: "1px solid rgba(167,139,250,0.1)",
+        fontSize: "12px",
+      }}
+    >
+      <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>{label}</span>
+      <div style={{ color: "var(--text-secondary)", overflowWrap: "anywhere", minWidth: 0 }}>
+        {children}
+      </div>
     </div>
   );
 }

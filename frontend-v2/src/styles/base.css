@@ -445,3 +445,18 @@ hr {
 @media (max-width: 360px) {
   .topbar__brand-name { display: none; }
 }
+/* Forge keeps the graph and its selected-step inspector in one working surface. */
+.forge-workflow-layout {
+  display: grid;
+  grid-template-columns: minmax(340px, 1fr) minmax(260px, 36%);
+}
+
+@media (max-width: 620px) {
+  .forge-workflow-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .forge-workflow-layout > :last-child {
+    border-left: 0 !important;
+  }
+}

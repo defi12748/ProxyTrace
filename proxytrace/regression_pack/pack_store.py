@@ -15,6 +15,10 @@ def build_assertions_from_replay(replay: Replay) -> dict[str, Any]:
     verdict = replay.verdict or {}
     if replay.mode != "exploratory":
         raise RegressionPromotionError("only exploratory replays can be promoted")
+    if verdict.get("execution_status") != "completed":
+        raise RegressionPromotionError(
+            "only successfully completed exploratory replays can be promoted"
+        )
 
     patched_steps = verdict.get("patched_steps") or []
     if not patched_steps:

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Background,
   Controls,
@@ -6,6 +6,9 @@ import {
   ReactFlow,
   type Edge,
   type Node,
+  type ReactFlowInstance,
+  useEdgesState,
+  useNodesState,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { stepName, stepSubtitle } from "../../lib/utils";
@@ -17,8 +20,15 @@ interface WorkflowGraphProps {
   patchStep?: number | null;
   height?: string;
   compact?: boolean;
-  onNodeClick?: (stepId: string) => void;
+  selectedNodeId?: string | null;
+  onNodeClick?: (selection: WorkflowGraphSelection) => void;
 }
+
+export type WorkflowGraphSelection = {
+  nodeId: string;
+  branch: "original" | "patched";
+  step: Step | JsonObject;
+};
 
 export function WorkflowGraph({
   originalSteps,
@@ -26,9 +36,10 @@ export function WorkflowGraph({
   patchStep = null,
   height = "600px",
   compact = false,
+  selectedNodeId = null,
   onNodeClick,
 }: WorkflowGraphProps) {
-  const { nodes, edges } = useMemo(() => {
+  const graph = useMemo(() => {
     const nds: Node[] = [];
     const eds: Edge[] = [];
     const hasPatch = patchedSteps.length > 0;
@@ -120,6 +131,8 @@ export function WorkflowGraph({
         position: { x: 40, y: index * 100 },
         data: {
           stepId: step.step_id,
+          step,
+          branch: "original",
           label: renderLabel(step.step_index, stepName(step), stepSubtitle(step), false),
         },
         style: isPatchPoint ? patchPointStyle : nodeStyle,
@@ -152,6 +165,8 @@ export function WorkflowGraph({
           position: { x: 380, y: index * 100 },
           data: {
             stepId: step.step_id,
+            step,
+            branch: "patched",
             label: renderLabel(
               stepIndex,
               stepName(step),
@@ -195,6 +210,24 @@ export function WorkflowGraph({
     return { nodes: nds, edges: eds };
   }, [originalSteps, patchedSteps, patchStep]);
 
+  const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(graph.edges);
+  const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
+
+  useEffect(() => {
+    setNodes(graph.nodes);
+    setEdges(graph.edges);
+    const timer = window.setTimeout(() => {
+      void flow?.fitView({ padding: 0.18, duration: 250 });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [flow, graph, setEdges, setNodes]);
+
+  const activeNodes = nodes.map((node) => ({
+    ...node,
+    selected: node.id === selectedNodeId,
+  }));
+
   return (
     <div
       style={{
@@ -207,17 +240,33 @@ export function WorkflowGraph({
       }}
     >
       <ReactFlow 
-        nodes={nodes} 
+        nodes={activeNodes}
         edges={edges} 
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onInit={setFlow}
         fitView 
+        fitViewOptions={{ padding: 0.18 }}
         minZoom={0.5} 
         maxZoom={1.5} 
+        nodesDraggable
+        nodesConnectable={false}
+        elementsSelectable
+        panOnDrag
+        zoomOnScroll
+        zoomOnPinch
         proOptions={{ hideAttribution: true }}
-        onNodeClick={onNodeClick ? (_e, node) => onNodeClick(node.data.stepId as string) : undefined}
+        onNodeClick={onNodeClick ? (_e, node) => {
+          const step = node.data.step as Step | JsonObject | undefined;
+          const branch = node.data.branch;
+          if (step && (branch === "original" || branch === "patched")) {
+            onNodeClick({ nodeId: node.id, branch, step });
+          }
+        } : undefined}
       >
         <Background color="var(--border-strong)" gap={16} size={1} />
         <Controls
-          showInteractive={false}
+          showInteractive
           position="top-right"
           orientation="horizontal"
           aria-label="Workflow graph controls"
@@ -246,6 +295,15 @@ export function WorkflowGraph({
             />
         )}
       </ReactFlow>
+      <style>{`
+        .react-flow__node { cursor: grab; }
+        .react-flow__node:active { cursor: grabbing; }
+        .react-flow__node.selected { z-index: 4 !important; }
+        .react-flow__node.selected > div {
+          border-color: var(--blue) !important;
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18), var(--shadow-md) !important;
+        }
+      `}</style>
     </div>
   );
 }

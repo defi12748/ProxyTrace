@@ -79,6 +79,24 @@ def _recorded_steps() -> list[SimpleNamespace]:
     ]
 
 
+def _legacy_recorded_steps() -> list[SimpleNamespace]:
+    steps = _recorded_steps()
+    steps[0].payload["response"] = {
+        "candidates": [{"content": {"parts": [{"text": ""}]}}]
+    }
+    steps[2].payload["response"] = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": "Move this ticket to the validated board."}]
+                }
+            }
+        ]
+    }
+    steps[1].snapshot = {"candidate_board": "INFRA"}
+    return steps
+
+
 async def _contract(tool_name: str) -> SimpleNamespace:
     write = tool_name == "update_ticket"
     return SimpleNamespace(
@@ -187,6 +205,59 @@ async def test_exploratory_runtime_executes_downstream_decision_after_patch() ->
     assert update["payload"]["params"]["board"] == "PLATFORM"
     assert update["source"] == "simulated_tool_interceptor"
     assert update["firewall"]["allowed"] is False
+
+
+async def test_strict_runtime_recovers_legacy_decisions_from_recorded_boundaries() -> None:
+    runtime = InterceptedReplayRuntime(
+        recorded_steps=_legacy_recorded_steps(),
+        contract_resolver=_contract,
+        firewall=SideEffectFirewall(),
+        mode="strict",
+    )
+
+    result = await JiraTriageWorkflow().execute(
+        runtime,
+        issue_key="DEMO-1",
+        summary="Database incident",
+        description="Latency is high",
+    )
+
+    assert result["final_board"] == "INFRA"
+    assert [event["source"] for event in runtime.events] == [
+        "recorded_boundary_recovery",
+        "recorded_interceptor",
+        "recorded_boundary_recovery",
+        "recorded_interceptor",
+    ]
+    assert runtime.live_model_call_count == 0
+    assert runtime.side_effect_block_count == 1
+
+
+async def test_exploratory_runtime_recovers_legacy_initial_decision() -> None:
+    generator = FakeGenerator()
+    runtime = InterceptedReplayRuntime(
+        recorded_steps=_legacy_recorded_steps(),
+        contract_resolver=_contract,
+        firewall=SideEffectFirewall(),
+        mode="exploratory",
+        patch_step=2,
+        patch_payload={
+            "patch_type": "tool_result_patch",
+            "value": {"response": {"project_key": "PLATFORM"}},
+        },
+        decision_generator=generator,
+    )
+
+    result = await JiraTriageWorkflow().execute(
+        runtime,
+        issue_key="DEMO-1",
+        summary="Database incident",
+        description="Latency is high",
+    )
+
+    assert result["final_board"] == "PLATFORM"
+    assert runtime.events[0]["source"] == "recorded_boundary_recovery"
+    assert generator.calls == 1
 
 
 async def test_workflow_takes_real_escalation_branch_for_high_impact_issue() -> None:

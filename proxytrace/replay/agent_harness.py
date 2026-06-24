@@ -7,7 +7,14 @@ from typing import Any, Awaitable, Callable, Protocol
 from google import genai
 from pydantic import BaseModel
 
-from proxytrace.agent_demo.workflow import JiraTriageWorkflow, SYSTEM_PROMPT
+from proxytrace.agent_demo.workflow import (
+    AgentDecisionError,
+    FinalTriageDecision,
+    InitialTriageDecision,
+    JiraTriageWorkflow,
+    SYSTEM_PROMPT,
+    parse_decision,
+)
 from proxytrace.contracts.registry import get_contract_or_default
 from proxytrace.replay.firewall import SideEffectFirewall
 from proxytrace.settings import get_settings
@@ -140,6 +147,21 @@ class InterceptedReplayRuntime:
             response = deepcopy(payload.get("response_text") or payload.get("response"))
             source = "recorded_interceptor"
 
+            # Early traces stored the model SDK envelope but not its normalized
+            # structured decision. Recover only from the tool boundary that the
+            # recorded agent actually emitted; this preserves observed behavior
+            # without introducing a live-model or keyword fallback.
+            try:
+                parse_decision(response, response_schema)
+            except AgentDecisionError:
+                recovered = self._recover_recorded_decision(
+                    stage=stage,
+                    response_schema=response_schema,
+                )
+                if recovered is not None:
+                    response = recovered
+                    source = "recorded_boundary_recovery"
+
         payload = {
             "model": self._payload(expected).get("model"),
             "system_prompt": SYSTEM_PROMPT,
@@ -161,6 +183,62 @@ class InterceptedReplayRuntime:
         event["request_matched"] = self._llm_request_matches(expected, prompt)
         self.events.append(event)
         return response
+
+    def _recover_recorded_decision(
+        self,
+        *,
+        stage: str,
+        response_schema: type[BaseModel],
+    ) -> dict[str, Any] | None:
+        next_step = (
+            self.recorded_steps[self.cursor]
+            if self.cursor < len(self.recorded_steps)
+            else None
+        )
+        next_payload = self._payload(next_step)
+        next_tool = next_payload.get("tool_name")
+
+        if response_schema is InitialTriageDecision and next_tool == "get_project_key":
+            tool_response = next_payload.get("response") or {}
+            snapshot = getattr(next_step, "snapshot", {}) or {}
+            candidate_board = (
+                snapshot.get("candidate_board")
+                or (
+                    tool_response.get("project_key")
+                    if isinstance(tool_response, dict)
+                    else None
+                )
+            )
+            if candidate_board:
+                return {
+                    "next_tool": "get_project_key",
+                    "candidate_board": str(candidate_board),
+                    "reason": "Recovered from the recorded get_project_key boundary.",
+                }
+
+        if response_schema is FinalTriageDecision:
+            if next_step is None:
+                return {
+                    "next_tool": "stop",
+                    "board": None,
+                    "priority": None,
+                    "reason": "Recovered from a recorded no-write trajectory.",
+                }
+            if next_tool in {"update_ticket", "escalate_ticket"}:
+                params = next_payload.get("params") or {}
+                if not isinstance(params, dict) or not params.get("board"):
+                    return None
+                return {
+                    "next_tool": next_tool,
+                    "board": str(params["board"]),
+                    "priority": params.get("priority"),
+                    "reason": str(
+                        params.get("reason")
+                        or f"Recovered from the recorded {next_tool} boundary."
+                    ),
+                }
+
+        return None
 
     async def call_tool(
         self,

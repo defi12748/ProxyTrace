@@ -226,7 +226,12 @@ export function buildGraph(
     nodes.push({
       id: `o-${step.step_index}`,
       position: { x: 20, y: index * 100 },
-      data: { label: renderLabel(step, step.step_index, false), stepId: step.step_id },
+      data: {
+        label: renderLabel(step, step.step_index, false),
+        stepId: step.step_id,
+        step,
+        branch: "original",
+      },
       className: isPatchPoint ? "pt-node pt-original pt-patch-point" : "pt-node pt-original",
     });
     if (index > 0) {
@@ -248,7 +253,12 @@ export function buildGraph(
       nodes.push({
         id: `p-${stepIndex}`,
         position: { x: 440, y: index * 100 },
-        data: { label: renderLabel(step, stepIndex, isUnverified), stepId: step.step_id },
+        data: {
+          label: renderLabel(step, stepIndex, isUnverified),
+          stepId: step.step_id,
+          step,
+          branch: "patched",
+        },
         className: [
           "pt-node pt-patched",
           isPatchPoint ? "pt-patch-point" : "",

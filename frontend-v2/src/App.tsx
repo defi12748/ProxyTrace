@@ -122,7 +122,7 @@ function GlobalTourTracker() {
               target: "tour-regression-list",
               title: "Saved Test Cases",
               description:
-                "Each item is a 'what-if' simulation you promoted from the Replay Studio. It stores the patch you applied, the expected verdict, and the historical pass rate. You can run a single test or delete tests that are no longer relevant.",
+                "Each item is a 'what-if' simulation promoted directly from Trace Detail. It stores the patch, expected verdict, and historical pass rate. You can run a single test or remove tests that are no longer relevant.",
               placement: "top",
             },
           ],
@@ -144,24 +144,24 @@ function GlobalTourTracker() {
               placement: "right",
             },
             {
-              target: "tour-step-inspector",
-              title: "Step Inspector",
-              description:
-                "The center panel shows deep details for the selected step: the human-readable story of what happened, key facts like confidence scores and routing decisions, a JSON diff of how the agent\'s state changed, and the raw payload.",
-              placement: "bottom",
-            },
-            {
               target: "tour-trajectory-graph",
               title: "Trajectory Graph",
               description:
-                "This graph renders the agent\'s full decision path as a flow diagram. Nodes represent steps; edges show the sequence. Click a node to jump directly to that step in the Timeline. When a simulation is active, the patched path is shown in purple.",
+                "This interactive graph renders the agent\'s full decision path. Drag nodes to rearrange the view, pan or zoom the canvas, and click any original or simulated node to inspect it.",
               placement: "top",
             },
             {
               target: "tour-replay-controls",
               title: "Replay Controls",
               description:
-                "Use \'Safe Replay\' to re-run the trace from stored data without touching Jira. Use \'Simulate Route\' to inject a hypothetical routing decision and see how the agent responds. Results appear inline — or open the full Replay Studio for a deeper comparison view.",
+                "Use \'Safe Replay\' to re-run the trace from stored data without touching Jira. Use \'Simulate Route\' to inject a hypothetical routing decision and compare the original and simulated trajectories inline.",
+              placement: "left",
+            },
+            {
+              target: "tour-step-inspector",
+              title: "Step Inspector",
+              description:
+                "Directly beneath Replay Controls, the inspector explains the selected LLM reasoning or tool call, then exposes its prompt, response, state diff, and raw payload.",
               placement: "left",
             },
           ],

@@ -8,6 +8,7 @@ import {
   Split,
   ChevronRight,
   ShieldAlert,
+  BadgeCheck,
 } from "lucide-react";
 import { PageShell } from "../components/layout/PageShell";
 import { Button } from "../components/ui/Button";
@@ -24,7 +25,7 @@ import { Card, CardHeader, CardBody } from "../components/ui/Card";
 import { showToast } from "../components/ui/Toast";
 import { DriftCheckModal } from "../components/drift/DriftCheckModal";
 import { JiraIssueCard } from "../components/jira/JiraIssueCard";
-import { ProxyTraceApi, getInitialApiBase, compactId, formatDate } from "../api/client";
+import { ProxyTraceApi, getInitialApiBase, compactId, formatDate, asRecord } from "../api/client";
 import { pickFirstToolStep, ROUTE_OPTIONS } from "../lib/utils";
 import type {
   DriftCheckResult,
@@ -32,6 +33,7 @@ import type {
   JiraIssue,
   JsonObject,
   RunDetail,
+  Step,
   StrictReplay,
   Warning,
 } from "../api/types";
@@ -46,21 +48,14 @@ export function TraceDetailPage() {
 
   const [detail, setDetail] = useState<RunDetail | null>(null);
   const [warnings, setWarnings] = useState<Warning[]>([]);
-  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [selectedStep, setSelectedStep] = useState<Step | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [strictReplay, setStrictReplay] = useState<StrictReplay | null>(null);
   const [exploratoryReplay, setExploratoryReplay] = useState<ExploratoryReplay | null>(null);
+  const [promotedId, setPromotedId] = useState<string | null>(null);
   const [patchBoard, setPatchBoard] = useState("PLATFORM");
   const [busy, setBusy] = useState<string | null>(null);
   const [driftModalOpen, setDriftModalOpen] = useState(false);
-
-  const selectedStep = useMemo(() => {
-    if (!detail) return null;
-    return (
-      detail.steps.find((s) => s.step_id === selectedStepId) ??
-      detail.steps[0] ??
-      null
-    );
-  }, [detail, selectedStepId]);
 
   const patchStep = useMemo(
     () => (detail ? pickFirstToolStep(detail.steps, "get_project_key") : null),
@@ -68,9 +63,19 @@ export function TraceDetailPage() {
   );
 
   const patchedSteps = useMemo(() => {
+    if (exploratoryReplay?.verdict.execution_status !== "completed") return [];
     const steps = exploratoryReplay?.verdict.patched_steps;
     return Array.isArray(steps) ? (steps as JsonObject[]) : [];
   }, [exploratoryReplay]);
+
+  const selectedPreviousStep = useMemo(() => {
+    if (!detail || !selectedStep) return undefined;
+    const collection = selectedNodeId?.startsWith("p-")
+      ? (patchedSteps as Step[])
+      : detail.steps;
+    const index = collection.findIndex((step) => step.step_index === selectedStep.step_index);
+    return index > 0 ? collection[index - 1] : undefined;
+  }, [detail, patchedSteps, selectedNodeId, selectedStep]);
 
   const loadDetail = useCallback(async () => {
     if (!runId) return;
@@ -82,7 +87,8 @@ export function TraceDetailPage() {
       ]);
       setDetail(d);
       setWarnings(w.warnings);
-      setSelectedStepId(d.steps[0]?.step_id ?? null);
+      setSelectedStep(d.steps[0] ?? null);
+      setSelectedNodeId(d.steps[0] ? `o-${d.steps[0].step_index}` : null);
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to load run", "error");
     } finally {
@@ -109,6 +115,8 @@ export function TraceDetailPage() {
   async function runExploratory() {
     if (!runId || patchStep === null) return;
     setBusy("exploratory");
+    setExploratoryReplay(null);
+    setPromotedId(null);
     try {
       const r = await api.post<ExploratoryReplay>(
         `/runs/${runId}/replay/exploratory`,
@@ -128,9 +136,28 @@ export function TraceDetailPage() {
         }
       );
       setExploratoryReplay(r);
-      showToast("Route simulation complete", "success");
+      if (r.verdict.execution_status === "failed") {
+        const executionError = asRecord(r.verdict.execution_error);
+        showToast(String(executionError.message ?? "Simulation could not complete"), "error");
+      } else {
+        showToast("Route simulation complete", "success");
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Simulation failed", "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function promote() {
+    if (!exploratoryReplay || exploratoryReplay.verdict.execution_status !== "completed") return;
+    setBusy("promote");
+    try {
+      await api.post("/regression/promote", { replay_id: exploratoryReplay.replay_id });
+      setPromotedId(exploratoryReplay.replay_id);
+      showToast("Saved as regression test", "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Promotion failed", "error");
     } finally {
       setBusy(null);
     }
@@ -254,57 +281,36 @@ export function TraceDetailPage() {
           <div style={{ flex: 1, overflowY: "auto" }}>
             <StepTimeline
               steps={detail.steps}
-              selectedStepId={selectedStepId}
+              selectedStepId={selectedNodeId?.startsWith("o-") ? selectedStep?.step_id ?? null : null}
               warnings={warnings}
-              onSelect={setSelectedStepId}
+              onSelect={(stepId) => {
+                const step = detail.steps.find((item) => item.step_id === stepId) ?? null;
+                setSelectedStep(step);
+                setSelectedNodeId(step ? `o-${step.step_index}` : null);
+              }}
             />
           </div>
         </Card>
 
-        {/* Center: Inspector + Graph */}
-        <div style={{ display: "grid", gridTemplateRows: isMobile ? "auto auto" : "1fr auto", gap: "12px", overflow: "hidden" }}>
-          {/* Step inspector */}
-          <Card id="tour-step-inspector" style={{ overflowY: "auto" }}>
-            <CardHeader>
-              <div>
-                <div style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "2px" }}>
-                  Inspector
-                </div>
-                <h2 style={{ fontSize: "14px", fontWeight: 600, margin: 0 }}>
-                  {selectedStep ? `Step ${selectedStep.step_index}` : "No step selected"}
-                </h2>
-              </div>
-              {selectedStep && (
-                <Badge color={statusColor(selectedStep.step_type)}>{selectedStep.step_type}</Badge>
-              )}
-            </CardHeader>
-            <CardBody>
-              {selectedStep ? (
-                <StepInspector 
-                  step={selectedStep} 
-                  previousStep={detail.steps.indexOf(selectedStep) > 0 ? detail.steps[detail.steps.indexOf(selectedStep) - 1] : undefined}
-                />
-              ) : (
-                <EmptyState icon={<GitBranch size={20} />} title="Select a step" description="Click a step in the timeline." />
-              )}
-            </CardBody>
-          </Card>
-
-          {/* Trajectory graph */}
-          <Card id="tour-trajectory-graph" style={{ height: isMobile ? "320px" : "280px", overflow: "hidden" }}>
+        {/* Center: interactive trajectory */}
+        <div style={{ minWidth: 0, overflow: "hidden" }}>
+          <Card id="tour-trajectory-graph" style={{ height: isMobile ? "440px" : "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <CardHeader style={{ paddingTop: "10px", paddingBottom: "10px" }}>
               <div style={{ fontSize: "13px", fontWeight: 600 }}>Trajectory Graph</div>
               <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                {patchedSteps.length > 0 ? "Original ↔ Patched" : "Original trace"}
+                {patchedSteps.length > 0 ? "Original ↔ Simulated · drag nodes · click to inspect" : "Drag nodes · click to inspect"}
               </span>
             </CardHeader>
-            <div style={{ height: "220px" }}>
+            <div style={{ flex: 1, minHeight: 0 }}>
               <TrajectoryGraph
                 steps={detail.steps}
                 patchedSteps={patchedSteps}
                 patchStep={patchStep}
-                selectedStepId={selectedStepId}
-                onSelectNode={setSelectedStepId}
+                selectedNodeId={selectedNodeId}
+                onSelectNode={(selection) => {
+                  setSelectedNodeId(selection.nodeId);
+                  setSelectedStep(selection.step as Step);
+                }}
               />
             </div>
           </Card>
@@ -369,7 +375,7 @@ export function TraceDetailPage() {
                   Inject a mock response into the selected step to see if the agent recovers or changes its path.
                 </p>
                 <Button
-                  variant="ghost"
+                  variant="primary"
                   icon={<Split size={14} />}
                   loading={busy === "exploratory"}
                   onClick={() => void runExploratory()}
@@ -382,29 +388,54 @@ export function TraceDetailPage() {
             </CardBody>
           </Card>
 
+          <Card id="tour-step-inspector">
+            <CardHeader>
+              <div>
+                <div style={{ fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "2px" }}>
+                  Selected node
+                </div>
+                <h2 style={{ fontSize: "14px", fontWeight: 600, margin: 0 }}>
+                  {selectedStep ? `Step ${selectedStep.step_index}` : "No step selected"}
+                </h2>
+              </div>
+              {selectedStep && (
+                <div style={{ display: "flex", gap: "5px" }}>
+                  {selectedNodeId?.startsWith("p-") && <Badge color="purple">simulated</Badge>}
+                  <Badge color={statusColor(selectedStep.step_type)}>{selectedStep.step_type}</Badge>
+                </div>
+              )}
+            </CardHeader>
+            <CardBody>
+              {selectedStep ? (
+                <StepInspector step={selectedStep} previousStep={selectedPreviousStep} />
+              ) : (
+                <EmptyState icon={<GitBranch size={20} />} title="Select a node" description="Click any graph node or timeline step." />
+              )}
+            </CardBody>
+          </Card>
+
           {/* Strict replay result */}
           {strictReplay && <StrictReplayCard replay={strictReplay} />}
 
           {/* Exploratory verdict */}
           {exploratoryReplay && <VerdictPanel replay={exploratoryReplay} />}
 
-          {/* Go to Replay Studio */}
-          {(strictReplay || exploratoryReplay) && (
-            <div style={{ animation: "pulse 2s infinite" }}>
+          {exploratoryReplay?.verdict.execution_status === "completed" && (
+            promotedId ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "10px", background: "var(--emerald-dim)", border: "1px solid rgba(52,211,153,0.3)", borderRadius: "var(--radius-md)", color: "var(--emerald)", fontSize: "12px", fontWeight: 600 }}>
+                <BadgeCheck size={14} /> Saved as regression test
+              </div>
+            ) : (
               <Button
-                variant="primary"
-                onClick={() => navigate(`/traces/${runId}/replay`)}
-                style={{
-                  width: "100%",
-                  justifyContent: "center",
-                  background: "var(--violet)",
-                  color: "#fff",
-                  boxShadow: "0 0 15px rgba(167,139,250,0.4)"
-                }}
+                variant="success"
+                icon={<BadgeCheck size={14} />}
+                loading={busy === "promote"}
+                onClick={() => void promote()}
+                style={{ width: "100%", justifyContent: "center" }}
               >
-                Open Replay Studio →
+                Promote to Regression Test
               </Button>
-            </div>
+            )
           )}
 
           {/* Jira issue card — shown when the run has a linked Jira key */}
